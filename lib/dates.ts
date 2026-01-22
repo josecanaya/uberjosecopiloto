@@ -35,12 +35,15 @@ export function formatDateTime(date: Date): string {
 }
 
 export function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat("es-AR", {
+  // Formatear como moneda argentina con $ al principio
+  const formatted = new Intl.NumberFormat("es-AR", {
     style: "currency",
     currency: "ARS",
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
   }).format(amount);
+  // Asegurar que el formato sea $ X.XXX
+  return formatted.replace(/\s/g, " "); // Normalizar espacios
 }
 
 export function formatDuration(minutes: number): string {

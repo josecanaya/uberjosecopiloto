@@ -418,11 +418,6 @@ export default function HomePage() {
                 style={{ width: `${Math.min(100, progreso)}%` }}
               />
             </div>
-            {faltante > 0 && (
-              <div className="text-center text-sm text-muted-foreground">
-                Faltan {formatCurrency(faltante)}
-              </div>
-            )}
           </div>
 
           {/* Horas y $/h */}
