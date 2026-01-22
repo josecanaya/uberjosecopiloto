@@ -13,7 +13,7 @@ const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes
 
 export default function SemanaPage() {
   const [state, setState] = useState(defaultState);
-  const [weekStart, setWeekStart] = useState(startOfWeek(getArgentinaDate()));
+  const [weekStart, setWeekStart] = useState<Date | null>(null);
   const [showDays, setShowDays] = useState(false);
   const [editingWeeklyGoal, setEditingWeeklyGoal] = useState(false);
   const [weeklyGoalValue, setWeeklyGoalValue] = useState("");
@@ -22,15 +22,23 @@ export default function SemanaPage() {
     const currentState = getState();
     setState(currentState);
     setWeeklyGoalValue((currentState.settings.weeklyGoal || 400000).toString());
+    // Inicializar weekStart solo en el cliente
+    if (weekStart === null) {
+      setWeekStart(startOfWeek(getArgentinaDate()));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const weekStats = calculateWeekStats(
-    state.events,
-    weekStart,
-    state.settings.goalsByDow,
-    state.settings.planBlocksByDow,
-    state.manualAdjustments
-  );
+  // Solo calcular si weekStart está inicializado
+  const weekStats = weekStart
+    ? calculateWeekStats(
+        state.events,
+        weekStart,
+        state.settings.goalsByDow,
+        state.settings.planBlocksByDow,
+        state.manualAdjustments
+      )
+    : [];
 
   const totals = weekStats.reduce(
     (acc, day) => ({
@@ -50,12 +58,14 @@ export default function SemanaPage() {
   const porHoraNetoSemanal = totals.horasEfectivas > 0 ? totals.neto / totals.horasEfectivas : 0;
 
   const handlePreviousWeek = () => {
+    if (!weekStart) return;
     const newDate = new Date(weekStart);
     newDate.setDate(weekStart.getDate() - 7);
     setWeekStart(newDate);
   };
 
   const handleNextWeek = () => {
+    if (!weekStart) return;
     const newDate = new Date(weekStart);
     newDate.setDate(weekStart.getDate() + 7);
     setWeekStart(newDate);
@@ -71,13 +81,33 @@ export default function SemanaPage() {
     setEditingWeeklyGoal(false);
   };
 
-  const weekStartStr = weekStart.toLocaleDateString("es-AR", { day: "numeric", month: "short" });
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekStart.getDate() + 6);
-  const weekEndStr = weekEnd.toLocaleDateString("es-AR", { day: "numeric", month: "short" });
+  const weekStartStr = weekStart
+    ? weekStart.toLocaleDateString("es-AR", { day: "numeric", month: "short" })
+    : "";
+  const weekEnd = weekStart ? new Date(weekStart) : null;
+  if (weekEnd) {
+    weekEnd.setDate(weekStart!.getDate() + 6);
+  }
+  const weekEndStr = weekEnd
+    ? weekEnd.toLocaleDateString("es-AR", { day: "numeric", month: "short" })
+    : "";
 
   // Calcular máximo para el gráfico
   const maxBruto = Math.max(...weekStats.map((d) => d.stats.bruto), weeklyGoal, 10000);
+
+  // Si weekStart no está inicializado, mostrar loading
+  if (!weekStart) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Semana</h1>
+            <p className="text-sm text-muted-foreground">Cargando...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
