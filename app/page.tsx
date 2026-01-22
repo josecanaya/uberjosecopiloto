@@ -567,21 +567,29 @@ export default function HomePage() {
         </CardContent>
       </Card>
 
-      {/* Configuración (solo dev) */}
-      {process.env.NODE_ENV !== "production" && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Datos de Ejemplo</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleLoadDemo}
-              className="w-full"
-            >
-              Cargar Datos Demo
-            </Button>
+      {/* Configuración y Datos de Ejemplo */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Datos de Ejemplo</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="text-xs text-muted-foreground">
+            <p className="mb-2">
+              Los datos se guardan en tu navegador (localStorage). Cada vez que abres la app, se cargan automáticamente.
+            </p>
+            <p>
+              Puedes usar &quot;Cargar Datos Demo&quot; para probar la app con datos de ejemplo.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLoadDemo}
+            className="w-full"
+          >
+            Cargar Datos Demo
+          </Button>
+          {process.env.NODE_ENV !== "production" && (
             <Button
               variant="destructive"
               size="sm"
@@ -591,9 +599,9 @@ export default function HomePage() {
               <RotateCcw className="h-4 w-4 mr-2" />
               Resetear Todos los Datos
             </Button>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       {/* Modales */}
       <IncomeForm
