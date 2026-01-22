@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,13 +13,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatCurrency } from "@/lib/utils";
+import { addEvent, updateEvent, type Event } from "@/lib/storage";
+import { getArgentinaDate } from "@/lib/utils";
 
 interface FuelFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
-  defaultDate?: Date;
+  editingEvent?: Event | null;
 }
 
 interface FuelFormData {
@@ -27,7 +28,6 @@ interface FuelFormData {
   liters?: number;
   pricePerLiter?: number;
   station?: string;
-  odometer?: number;
   at: string;
   note?: string;
 }
@@ -36,28 +36,51 @@ export function FuelForm({
   open,
   onOpenChange,
   onSuccess,
-  defaultDate,
+  editingEvent,
 }: FuelFormProps) {
   const [loading, setLoading] = useState(false);
+  const now = getArgentinaDate();
+  const defaultDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<FuelFormData>({
     defaultValues: {
-      totalAmount: 0,
-      liters: undefined,
-      pricePerLiter: undefined,
-      station: "",
-      odometer: undefined,
-      at: defaultDate
-        ? new Date(defaultDate).toISOString().slice(0, 16)
-        : new Date().toISOString().slice(0, 16),
-      note: "",
+      totalAmount: editingEvent?.amount || 0,
+      liters: editingEvent?.fuelLiters,
+      pricePerLiter: editingEvent?.fuelPricePerLiter,
+      station: editingEvent?.fuelStation || "",
+      at: editingEvent?.at
+        ? new Date(editingEvent.at).toISOString().slice(0, 16)
+        : defaultDateTime,
+      note: editingEvent?.note || "",
     },
   });
+
+  useEffect(() => {
+    if (editingEvent) {
+      setValue("totalAmount", editingEvent.amount || 0);
+      setValue("liters", editingEvent.fuelLiters);
+      setValue("pricePerLiter", editingEvent.fuelPricePerLiter);
+      setValue("station", editingEvent.fuelStation || "");
+      setValue("at", new Date(editingEvent.at || "").toISOString().slice(0, 16));
+      setValue("note", editingEvent.note || "");
+    } else {
+      reset({
+        totalAmount: 0,
+        liters: undefined,
+        pricePerLiter: undefined,
+        station: "",
+        at: defaultDateTime,
+        note: "",
+      });
+    }
+  }, [editingEvent, open, defaultDateTime, setValue, reset]);
 
   const totalAmount = watch("totalAmount");
   const liters = watch("liters");
   const pricePerLiter = watch("pricePerLiter");
 
-  // Auto-calcular pricePerLiter si tenemos totalAmount y liters
   const handleLitersChange = (value: string) => {
     const litersValue = parseFloat(value) || 0;
     setValue("liters", litersValue);
@@ -66,7 +89,6 @@ export function FuelForm({
     }
   };
 
-  // Auto-calcular liters si tenemos totalAmount y pricePerLiter
   const handlePricePerLiterChange = (value: string) => {
     const priceValue = parseFloat(value) || 0;
     setValue("pricePerLiter", priceValue);
@@ -78,27 +100,23 @@ export function FuelForm({
   const onSubmit = async (data: FuelFormData) => {
     setLoading(true);
     try {
-      const finalLiters = data.liters || (data.totalAmount && data.pricePerLiter ? data.totalAmount / data.pricePerLiter : null);
-      const finalPricePerLiter = data.pricePerLiter || (data.totalAmount && data.liters ? data.totalAmount / data.liters : null);
+      const finalLiters = data.liters || (data.totalAmount && data.pricePerLiter ? data.totalAmount / data.pricePerLiter : undefined);
+      const finalPricePerLiter = data.pricePerLiter || (data.totalAmount && data.liters ? data.totalAmount / data.liters : undefined);
 
-      const response = await fetch("/api/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "EXPENSE",
-          expenseType: "FUEL",
-          amount: Number(data.totalAmount),
-          fuelLiters: finalLiters,
-          fuelPricePerLiter: finalPricePerLiter,
-          fuelStation: data.station || null,
-          fuelOdometer: data.odometer ? Number(data.odometer) : null,
-          at: new Date(data.at).toISOString(),
-          note: data.note || null,
-        }),
-      });
+      const eventData = {
+        type: "EXPENSE_FUEL" as const,
+        amount: Number(data.totalAmount),
+        fuelLiters: finalLiters,
+        fuelPricePerLiter: finalPricePerLiter,
+        fuelStation: data.station || undefined,
+        at: new Date(data.at).toISOString(),
+        note: data.note || undefined,
+      };
 
-      if (!response.ok) {
-        throw new Error("Error al crear registro de nafta");
+      if (editingEvent) {
+        updateEvent(editingEvent.id, eventData);
+      } else {
+        addEvent(eventData);
       }
 
       reset();
@@ -106,7 +124,7 @@ export function FuelForm({
       onOpenChange(false);
     } catch (error) {
       console.error(error);
-      alert("Error al crear registro de nafta");
+      alert("Error al guardar registro de nafta");
     } finally {
       setLoading(false);
     }
@@ -116,9 +134,13 @@ export function FuelForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Registrar Nafta</DialogTitle>
+          <DialogTitle>
+            {editingEvent ? "Editar Nafta" : "Registrar Nafta"}
+          </DialogTitle>
           <DialogDescription>
-            Agrega un nuevo gasto de combustible
+            {editingEvent
+              ? "Modifica el gasto de combustible"
+              : "Agrega un nuevo gasto de combustible"}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -179,15 +201,6 @@ export function FuelForm({
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="odometer">Odómetro (opcional)</Label>
-              <Input
-                id="odometer"
-                type="number"
-                {...register("odometer")}
-              />
-            </div>
-
-            <div className="grid gap-2">
               <Label htmlFor="at">Fecha y Hora</Label>
               <Input
                 id="at"
@@ -213,7 +226,7 @@ export function FuelForm({
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Guardando..." : "Guardar"}
+              {loading ? "Guardando..." : editingEvent ? "Actualizar" : "Guardar"}
             </Button>
           </DialogFooter>
         </form>

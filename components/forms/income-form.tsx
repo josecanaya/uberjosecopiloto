@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,13 +20,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatCurrency } from "@/lib/utils";
+import { addEvent, updateEvent, type Event } from "@/lib/storage";
+import { getArgentinaDate } from "@/lib/utils";
 
 interface IncomeFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
-  defaultDate?: Date;
+  editingEvent?: Event | null;
 }
 
 interface IncomeFormData {
@@ -40,37 +41,56 @@ export function IncomeForm({
   open,
   onOpenChange,
   onSuccess,
-  defaultDate,
+  editingEvent,
 }: IncomeFormProps) {
   const [loading, setLoading] = useState(false);
+  const now = getArgentinaDate();
+  const defaultDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+
   const { register, handleSubmit, formState: { errors }, reset, setValue, watch } = useForm<IncomeFormData>({
     defaultValues: {
-      amount: 0,
-      incomeType: "UBER",
-      at: defaultDate
-        ? new Date(defaultDate).toISOString().slice(0, 16)
-        : new Date().toISOString().slice(0, 16),
-      note: "",
+      amount: editingEvent?.amount || 0,
+      incomeType: (editingEvent?.incomeType as "UBER" | "TIP" | "OTHER") || "UBER",
+      at: editingEvent?.at
+        ? new Date(editingEvent.at).toISOString().slice(0, 16)
+        : defaultDateTime,
+      note: editingEvent?.note || "",
     },
   });
+
+  useEffect(() => {
+    if (editingEvent) {
+      setValue("amount", editingEvent.amount || 0);
+      setValue("incomeType", (editingEvent.incomeType as "UBER" | "TIP" | "OTHER") || "UBER");
+      setValue("at", new Date(editingEvent.at || "").toISOString().slice(0, 16));
+      setValue("note", editingEvent.note || "");
+    } else {
+      reset({
+        amount: 0,
+        incomeType: "UBER",
+        at: defaultDateTime,
+        note: "",
+      });
+    }
+  }, [editingEvent, open, defaultDateTime, setValue, reset]);
 
   const onSubmit = async (data: IncomeFormData) => {
     setLoading(true);
     try {
-      const response = await fetch("/api/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "INCOME",
-          amount: Number(data.amount),
-          incomeType: data.incomeType,
-          at: new Date(data.at).toISOString(),
-          note: data.note || null,
-        }),
-      });
+      const eventData = {
+        type: "INCOME" as const,
+        amount: Number(data.amount),
+        incomeType: data.incomeType,
+        at: new Date(data.at).toISOString(),
+        note: data.note || undefined,
+      };
 
-      if (!response.ok) {
-        throw new Error("Error al crear ingreso");
+      if (editingEvent) {
+        updateEvent(editingEvent.id, eventData);
+      } else {
+        addEvent(eventData);
       }
 
       reset();
@@ -78,7 +98,7 @@ export function IncomeForm({
       onOpenChange(false);
     } catch (error) {
       console.error(error);
-      alert("Error al crear ingreso");
+      alert("Error al guardar ingreso");
     } finally {
       setLoading(false);
     }
@@ -88,9 +108,13 @@ export function IncomeForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Registrar Ingreso</DialogTitle>
+          <DialogTitle>
+            {editingEvent ? "Editar Ingreso" : "Registrar Ingreso"}
+          </DialogTitle>
           <DialogDescription>
-            Agrega un nuevo ingreso a tu registro
+            {editingEvent
+              ? "Modifica el ingreso"
+              : "Agrega un nuevo ingreso a tu registro"}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)}>
@@ -119,7 +143,7 @@ export function IncomeForm({
                 onValueChange={(value) =>
                   setValue("incomeType", value as "UBER" | "TIP" | "OTHER")
                 }
-                defaultValue="UBER"
+                defaultValue={watch("incomeType")}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona un tipo" />
@@ -158,7 +182,7 @@ export function IncomeForm({
               Cancelar
             </Button>
             <Button type="submit" disabled={loading}>
-              {loading ? "Guardando..." : "Guardar"}
+              {loading ? "Guardando..." : editingEvent ? "Actualizar" : "Guardar"}
             </Button>
           </DialogFooter>
         </form>

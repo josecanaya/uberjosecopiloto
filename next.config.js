@@ -1,10 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverActions: {
-      bodySizeLimit: '1mb',
-    },
-  },
+  // App 100% frontend, sin server actions
 }
 
 module.exports = nextConfig

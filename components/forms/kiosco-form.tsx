@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,18 +13,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { addEvent, updateEvent, type Event } from "@/lib/storage";
+import { getArgentinaDate } from "@/lib/utils";
 
 interface KioscoFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
-  defaultDate?: Date;
-  editingEvent?: {
-    id: string;
-    amount: number;
-    at: string;
-    note: string | null;
-  } | null;
+  editingEvent?: Event | null;
 }
 
 interface KioscoFormData {
@@ -37,51 +33,52 @@ export function KioscoForm({
   open,
   onOpenChange,
   onSuccess,
-  defaultDate,
   editingEvent,
 }: KioscoFormProps) {
   const [loading, setLoading] = useState(false);
+  const now = getArgentinaDate();
+  const defaultDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+
   const { register, handleSubmit, formState: { errors }, reset, setValue } = useForm<KioscoFormData>({
     defaultValues: {
       amount: editingEvent?.amount || 0,
       at: editingEvent?.at
         ? new Date(editingEvent.at).toISOString().slice(0, 16)
-        : defaultDate
-        ? new Date(defaultDate).toISOString().slice(0, 16)
-        : new Date().toISOString().slice(0, 16),
+        : defaultDateTime,
       note: editingEvent?.note || "",
     },
   });
 
-  // Resetear form cuando cambia editingEvent
-  useState(() => {
+  useEffect(() => {
     if (editingEvent) {
-      setValue("amount", editingEvent.amount);
-      setValue("at", new Date(editingEvent.at).toISOString().slice(0, 16));
+      setValue("amount", editingEvent.amount || 0);
+      setValue("at", new Date(editingEvent.at || "").toISOString().slice(0, 16));
       setValue("note", editingEvent.note || "");
+    } else {
+      reset({
+        amount: 0,
+        at: defaultDateTime,
+        note: "",
+      });
     }
-  });
+  }, [editingEvent, open, defaultDateTime, setValue, reset]);
 
   const onSubmit = async (data: KioscoFormData) => {
     setLoading(true);
     try {
-      const url = editingEvent ? `/api/events/${editingEvent.id}` : "/api/events";
-      const method = editingEvent ? "PATCH" : "POST";
+      const eventData = {
+        type: "EXPENSE_KIOSCO" as const,
+        amount: Number(data.amount),
+        at: new Date(data.at).toISOString(),
+        note: data.note || undefined,
+      };
 
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "EXPENSE",
-          expenseType: "KIOSCO",
-          amount: Number(data.amount),
-          at: new Date(data.at).toISOString(),
-          note: data.note || null,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Error al crear/actualizar gasto de kiosco");
+      if (editingEvent) {
+        updateEvent(editingEvent.id, eventData);
+      } else {
+        addEvent(eventData);
       }
 
       reset();
@@ -89,7 +86,7 @@ export function KioscoForm({
       onOpenChange(false);
     } catch (error) {
       console.error(error);
-      alert("Error al crear/actualizar gasto de kiosco");
+      alert("Error al guardar gasto de kiosco");
     } finally {
       setLoading(false);
     }

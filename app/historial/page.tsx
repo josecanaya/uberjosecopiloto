@@ -12,32 +12,16 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Pencil, Trash2, DollarSign, Fuel, Clock, ShoppingBag } from "lucide-react";
-import { formatCurrency, formatDateTime, formatDuration, getArgentinaDate, getStartOfDay, getEndOfDay } from "@/lib/utils";
+import { Pencil, Trash2, DollarSign, Fuel, Clock, ShoppingBag, History } from "lucide-react";
+import { formatTime, formatDuration, getArgentinaDate, sameLocalDay } from "@/lib/utils";
+import { getState, deleteEvent, updateEvent, type Event } from "@/lib/storage";
 import { IncomeForm } from "@/components/forms/income-form";
 import { FuelForm } from "@/components/forms/fuel-form";
 import { KioscoForm } from "@/components/forms/kiosco-form";
 import { PauseForm } from "@/components/forms/pause-form";
 
-interface Event {
-  id: string;
-  type: "INCOME" | "EXPENSE" | "PAUSE";
-  amount: number | null;
-  at: string;
-  note: string | null;
-  incomeType: string | null;
-  expenseType: string | null;
-  fuelLiters: number | null;
-  fuelPricePerLiter: number | null;
-  fuelStation: string | null;
-  pauseStartAt: string | null;
-  pauseEndAt: string | null;
-  pauseReason: string | null;
-}
-
 export default function HistorialPage() {
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState(getState());
   const [date, setDate] = useState(getArgentinaDate().toISOString().split("T")[0]);
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -45,95 +29,93 @@ export default function HistorialPage() {
   const [fuelOpen, setFuelOpen] = useState(false);
   const [kioscoOpen, setKioscoOpen] = useState(false);
   const [pauseOpen, setPauseOpen] = useState(false);
-  const [activePause, setActivePause] = useState<{ id: string; pauseStartAt: Date; pauseReason: string | null } | null>(null);
+  const [activePause, setActivePause] = useState<Event | null>(null);
 
-  const fetchEvents = async () => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ date });
-      if (typeFilter !== "all") {
-        params.append("type", typeFilter);
-      }
-      const response = await fetch(`/api/events?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setEvents(data);
-        
-        // Buscar pausa activa
-        const active = data.find((e: Event) => e.type === "PAUSE" && !e.pauseEndAt);
-        if (active && active.pauseStartAt) {
-          setActivePause({
-            id: active.id,
-            pauseStartAt: new Date(active.pauseStartAt),
-            pauseReason: active.pauseReason,
-          });
-        } else {
-          setActivePause(null);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching events:", error);
-    } finally {
-      setLoading(false);
-    }
+  const refreshState = () => {
+    setState(getState());
   };
 
   useEffect(() => {
-    fetchEvents();
-  }, [date, typeFilter]);
+    refreshState();
+  }, []);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("¿Estás seguro de eliminar este evento?")) return;
-    try {
-      const response = await fetch(`/api/events/${id}`, {
-        method: "DELETE",
-      });
-      if (response.ok) {
-        fetchEvents();
+  // Filtrar eventos
+  const selectedDate = new Date(date + "T00:00:00");
+  const filteredEvents = state.events
+    .filter((e) => {
+      // Filtro por fecha
+      if (e.at || e.pauseStartAt) {
+        const eventDate = new Date(e.at || e.pauseStartAt || "");
+        if (!sameLocalDay(eventDate, selectedDate)) {
+          return false;
+        }
+      } else {
+        return false;
       }
-    } catch (error) {
-      console.error("Error deleting event:", error);
-      alert("Error al eliminar evento");
+
+      // Filtro por tipo
+      if (typeFilter === "all") return true;
+      if (typeFilter === "INCOME" && e.type === "INCOME") return true;
+      if (typeFilter === "EXPENSE" && (e.type === "EXPENSE_FUEL" || e.type === "EXPENSE_KIOSCO")) return true;
+      if (typeFilter === "PAUSE" && e.type === "PAUSE") return true;
+      return false;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.at || a.pauseStartAt || 0).getTime();
+      const dateB = new Date(b.at || b.pauseStartAt || 0).getTime();
+      return dateB - dateA; // Más recientes primero
+    });
+
+  // Buscar pausa activa
+  useEffect(() => {
+    const active = state.events.find(
+      (e) => e.type === "PAUSE" && e.pauseStartAt && !e.pauseEndAt
+    );
+    setActivePause(active || null);
+  }, [state.events]);
+
+  const handleDelete = (id: string) => {
+    if (!confirm("¿Eliminar este movimiento?")) return;
+    deleteEvent(id);
+    refreshState();
+  };
+
+  const handleClosePause = (id: string) => {
+    updateEvent(id, {
+      pauseEndAt: new Date().toISOString(),
+    });
+    refreshState();
+  };
+
+  const handleEdit = (event: Event) => {
+    setEditingEvent(event);
+    if (event.type === "INCOME") {
+      setIncomeOpen(true);
+    } else if (event.type === "EXPENSE_FUEL") {
+      setFuelOpen(true);
+    } else if (event.type === "EXPENSE_KIOSCO") {
+      setKioscoOpen(true);
     }
   };
 
-  const handleClosePause = async (id: string) => {
-    try {
-      const response = await fetch(`/api/events/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pauseEndAt: new Date().toISOString(),
-        }),
-      });
-      if (response.ok) {
-        fetchEvents();
-      }
-    } catch (error) {
-      console.error("Error closing pause:", error);
-      alert("Error al cerrar pausa");
-    }
-  };
-
-  const getEventIcon = (type: string, expenseType?: string | null) => {
+  const getEventIcon = (type: string) => {
     if (type === "INCOME") return <DollarSign className="h-5 w-5 text-green-600" />;
-    if (type === "EXPENSE" && expenseType === "FUEL") return <Fuel className="h-5 w-5 text-red-600" />;
-    if (type === "EXPENSE" && expenseType === "KIOSCO") return <ShoppingBag className="h-5 w-5 text-orange-600" />;
+    if (type === "EXPENSE_FUEL") return <Fuel className="h-5 w-5 text-red-600" />;
+    if (type === "EXPENSE_KIOSCO") return <ShoppingBag className="h-5 w-5 text-orange-600" />;
     if (type === "PAUSE") return <Clock className="h-5 w-5 text-blue-600" />;
     return null;
   };
 
   const getEventLabel = (event: Event) => {
     if (event.type === "INCOME") {
-      return `Ingreso: ${formatCurrency(event.amount || 0)} (${event.incomeType || "UBER"})`;
+      return `Ingreso: $${(event.amount || 0).toLocaleString("es-AR")}`;
     }
-    if (event.type === "EXPENSE" && event.expenseType === "FUEL") {
+    if (event.type === "EXPENSE_FUEL") {
       const liters = event.fuelLiters ? `${event.fuelLiters.toFixed(2)}L` : "";
-      const price = event.fuelPricePerLiter ? `@${formatCurrency(event.fuelPricePerLiter)}/L` : "";
-      return `Nafta: ${formatCurrency(event.amount || 0)} ${liters} ${price}`.trim();
+      return `Nafta: $${(event.amount || 0).toLocaleString("es-AR")} ${liters}`.trim();
     }
-    if (event.type === "EXPENSE" && event.expenseType === "KIOSCO") {
-      return `Kiosco: ${formatCurrency(event.amount || 0)}`;
+    if (event.type === "EXPENSE_KIOSCO") {
+      return `Kiosco: $${(event.amount || 0).toLocaleString("es-AR")}`;
     }
     if (event.type === "PAUSE") {
       const reason = event.pauseReason === "SLEEP" ? "Dormir" : event.pauseReason === "FOOD" ? "Comer" : "Descanso";
@@ -152,119 +134,116 @@ export default function HistorialPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-3xl font-bold">Historial</h1>
-        <p className="text-muted-foreground">
-          Revisa y gestiona tus eventos registrados
+        <h1 className="text-2xl font-bold">Historial</h1>
+        <p className="text-sm text-muted-foreground">
+          Revisa y gestiona tus movimientos
         </p>
       </div>
 
       {/* Filtros */}
       <Card>
-        <CardHeader>
-          <CardTitle>Filtros</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Filtros</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="grid gap-2">
-              <Label htmlFor="date">Fecha</Label>
-              <Input
-                id="date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="type">Tipo</Label>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Todos los tipos" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="INCOME">Ingresos</SelectItem>
-                  <SelectItem value="EXPENSE">Gastos</SelectItem>
-                  <SelectItem value="PAUSE">Pausas</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+        <CardContent className="space-y-3">
+          <div className="grid gap-2">
+            <Label htmlFor="date" className="text-xs">Fecha</Label>
+            <Input
+              id="date"
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="h-9"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="type" className="text-xs">Tipo</Label>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Todos los tipos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="INCOME">Ingresos</SelectItem>
+                <SelectItem value="EXPENSE">Gastos</SelectItem>
+                <SelectItem value="PAUSE">Pausas</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
 
       {/* Lista de eventos */}
-      {loading ? (
-        <div className="text-center py-8">Cargando...</div>
-      ) : events.length === 0 ? (
+      {filteredEvents.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            No hay eventos registrados para esta fecha
+          <CardContent className="py-12 text-center space-y-4">
+            <History className="h-12 w-12 mx-auto text-muted-foreground" />
+            <div>
+              <div className="font-semibold mb-2">No hay movimientos</div>
+              <div className="text-sm text-muted-foreground">
+                No hay eventos registrados para esta fecha
+              </div>
+            </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {events.map((event) => (
-            <Card key={event.id}>
+        <div className="space-y-2">
+          {filteredEvents.map((event) => (
+            <Card key={event.id} className="overflow-hidden">
               <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3 flex-1">
-                    {getEventIcon(event.type, event.expenseType)}
-                    <div className="flex-1">
-                      <div className="font-medium">{getEventLabel(event)}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {formatDateTime(new Date(event.at))}
-                      </div>
-                      {event.note && (
-                        <div className="text-sm text-muted-foreground mt-1">
-                          {event.note}
-                        </div>
-                      )}
-                      {event.type === "EXPENSE" && event.expenseType === "FUEL" && event.fuelStation && (
-                        <div className="text-sm text-muted-foreground">
-                          Estación: {event.fuelStation}
-                        </div>
-                      )}
-                    </div>
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5">
+                    {getEventIcon(event.type)}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="font-semibold text-sm">{getEventLabel(event)}</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {formatTime(new Date(event.at || event.pauseStartAt || ""))}
+                    </div>
+                    {event.note && (
+                      <div className="text-xs text-muted-foreground mt-1 truncate">
+                        {event.note}
+                      </div>
+                    )}
+                    {event.type === "EXPENSE_FUEL" && event.fuelStation && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Estación: {event.fuelStation}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
                     {event.type === "PAUSE" && !event.pauseEndAt && (
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => handleClosePause(event.id)}
+                        className="h-8 px-2 text-xs"
                       >
                         Cerrar
                       </Button>
                     )}
-                    {(event.type === "INCOME" || event.type === "EXPENSE") && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          if (event.type === "INCOME") {
-                            setEditingEvent(event);
-                            setIncomeOpen(true);
-                          } else if (event.type === "EXPENSE" && event.expenseType === "FUEL") {
-                            setEditingEvent(event);
-                            setFuelOpen(true);
-                          } else if (event.type === "EXPENSE" && event.expenseType === "KIOSCO") {
-                            setEditingEvent(event);
-                            setKioscoOpen(true);
-                          }
-                        }}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                    {(event.type === "INCOME" || event.type === "EXPENSE_FUEL" || event.type === "EXPENSE_KIOSCO") && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEdit(event)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDelete(event.id)}
+                          className="h-8 w-8 p-0 text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
                     )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDelete(event.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
                   </div>
                 </div>
               </CardContent>
@@ -273,53 +252,47 @@ export default function HistorialPage() {
         </div>
       )}
 
+      {/* Modales */}
       <IncomeForm
         open={incomeOpen}
         onOpenChange={(open) => {
           setIncomeOpen(open);
-          if (!open) {
-            setEditingEvent(null);
-          }
+          if (!open) setEditingEvent(null);
         }}
         onSuccess={() => {
-          fetchEvents();
+          refreshState();
           setEditingEvent(null);
         }}
-        defaultDate={editingEvent ? new Date(editingEvent.at) : undefined}
+        editingEvent={editingEvent && editingEvent.type === "INCOME" ? editingEvent : null}
       />
       <FuelForm
         open={fuelOpen}
         onOpenChange={(open) => {
           setFuelOpen(open);
-          if (!open) {
-            setEditingEvent(null);
-          }
+          if (!open) setEditingEvent(null);
         }}
         onSuccess={() => {
-          fetchEvents();
+          refreshState();
           setEditingEvent(null);
         }}
-        defaultDate={editingEvent ? new Date(editingEvent.at) : undefined}
+        editingEvent={editingEvent && editingEvent.type === "EXPENSE_FUEL" ? editingEvent : null}
       />
       <KioscoForm
         open={kioscoOpen}
         onOpenChange={(open) => {
           setKioscoOpen(open);
-          if (!open) {
-            setEditingEvent(null);
-          }
+          if (!open) setEditingEvent(null);
         }}
         onSuccess={() => {
-          fetchEvents();
+          refreshState();
           setEditingEvent(null);
         }}
-        defaultDate={editingEvent ? new Date(editingEvent.at) : undefined}
-        editingEvent={editingEvent && editingEvent.type === "EXPENSE" && editingEvent.expenseType === "KIOSCO" ? editingEvent : null}
+        editingEvent={editingEvent && editingEvent.type === "EXPENSE_KIOSCO" ? editingEvent : null}
       />
       <PauseForm
         open={pauseOpen}
         onOpenChange={setPauseOpen}
-        onSuccess={fetchEvents}
+        onSuccess={refreshState}
         activePause={activePause}
       />
     </div>

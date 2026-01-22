@@ -1,26 +1,31 @@
 # Copiloto Uber
 
-Aplicación web para registrar eventos (ingresos, nafta, pausas) y visualizar dashboards por día/semana para conductores Uber.
+Aplicación web **100% frontend** para registrar eventos (ingresos, nafta, kiosco, pausas) y visualizar dashboards por día/semana para conductores Uber.
+
+**✨ Característica principal**: Todo se guarda localmente en el navegador (localStorage). No requiere backend ni base de datos. Funciona completamente offline.
 
 ## 🚀 Stack Tecnológico
 
 - **Next.js 14** (App Router) + TypeScript
 - **Tailwind CSS** + **shadcn/ui** para UI
-- **Prisma ORM** + **PostgreSQL** (compatible con Neon/Supabase)
-- **Deploy target**: Vercel (serverless-friendly)
+- **localStorage** para persistencia (con versionado y migración)
+- **Deploy**: Vercel (sin backend, solo estático)
 
 ## 📋 Características
 
+- ✅ **100% Frontend**: Sin backend, sin base de datos, funciona offline
+- ✅ **Mobile-first design perfecto** (360-430px optimizado)
+- ✅ **UX estilo "Grows"** con botones grandes tipo banco
 - ✅ Registro rápido de eventos (ingresos, nafta, kiosco, pausas)
 - ✅ Dashboard diario con métricas en tiempo real
-- ✅ Vista semanal con resumen de métricas
+- ✅ Vista semanal con cards apiladas (sin tablas)
 - ✅ Historial de eventos con filtros y edición/borrado
 - ✅ Plan semanal configurable con bloques horarios
 - ✅ Cálculo automático de $/hora neto
 - ✅ Recomendaciones basadas en objetivos
-- ✅ Mobile-first design
-- ✅ CRUD completo de eventos desde la UI
-- ✅ Botón "Cargar ejemplo" para desarrollo
+- ✅ **Export/Import de datos** (JSON)
+- ✅ **Botón "Cargar demo"** para testing
+- ✅ Timezone Argentina (Lunes-Domingo correcto)
 
 ## 🛠️ Setup Local
 
@@ -28,7 +33,8 @@ Aplicación web para registrar eventos (ingresos, nafta, pausas) y visualizar da
 
 - Node.js 18+ 
 - npm o yarn
-- PostgreSQL (local o remoto - Neon/Supabase recomendado)
+
+**NO necesitas PostgreSQL ni ninguna base de datos.**
 
 ### 1. Instalar dependencias
 
@@ -36,67 +42,7 @@ Aplicación web para registrar eventos (ingresos, nafta, pausas) y visualizar da
 npm install
 ```
 
-### 2. Configurar base de datos
-
-#### Opción A: Neon (Recomendado para Vercel)
-
-1. Crear cuenta en [Neon](https://neon.tech)
-2. Crear un nuevo proyecto
-3. Copiar la connection string
-
-#### Opción B: Supabase
-
-1. Crear cuenta en [Supabase](https://supabase.com)
-2. Crear un nuevo proyecto
-3. Ir a Settings > Database
-4. Copiar la connection string (formato: `postgresql://...`)
-
-#### Opción C: PostgreSQL Local
-
-```bash
-# Instalar PostgreSQL localmente
-# Luego crear una base de datos:
-createdb copiloto_uber
-```
-
-### 3. Configurar variables de entorno
-
-Crear un archivo `.env` en la raíz del proyecto:
-
-```env
-DATABASE_URL="postgresql://usuario:password@host:puerto/database?schema=public"
-```
-
-**Ejemplo para Neon:**
-```env
-DATABASE_URL="postgresql://user:password@ep-xxx-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require"
-```
-
-**Ejemplo para Supabase:**
-```env
-DATABASE_URL="postgresql://postgres:[PASSWORD]@db.[PROJECT-REF].supabase.co:5432/postgres"
-```
-
-### 4. Ejecutar migraciones
-
-```bash
-npm run db:migrate
-```
-
-Esto creará las tablas en la base de datos.
-
-### 5. Poblar datos iniciales (seed)
-
-```bash
-npm run db:seed
-```
-
-Esto creará:
-- Plan semanal con bloques horarios
-- Objetivos diarios
-- Algunos eventos de ejemplo (opcional)
-
-### 6. Ejecutar en desarrollo
+### 2. Ejecutar en desarrollo
 
 ```bash
 npm run dev
@@ -104,12 +50,13 @@ npm run dev
 
 Abrir [http://localhost:3000](http://localhost:3000)
 
+¡Eso es todo! No necesitas configurar nada más.
+
 ## 📁 Estructura del Proyecto
 
 ```
 copiloto/
 ├── app/                    # Next.js App Router
-│   ├── api/               # API routes
 │   ├── historial/         # Página de historial
 │   ├── semana/            # Página semanal
 │   ├── layout.tsx         # Layout principal
@@ -119,33 +66,108 @@ copiloto/
 │   ├── ui/               # Componentes shadcn/ui
 │   └── navigation.tsx    # Navegación móvil
 ├── lib/                  # Utilidades
-│   ├── prisma.ts         # Cliente Prisma
+│   ├── storage.ts        # Sistema de localStorage
+│   ├── dates.ts          # Utilidades de fecha/timezone
+│   ├── calculations.ts   # Funciones de cálculo
 │   └── utils.ts          # Funciones helper
-└── prisma/
-    ├── schema.prisma     # Schema de Prisma
-    └── seed.ts           # Script de seed
+└── README.md
 ```
 
-## 🗄️ Modelo de Datos
+## 🗄️ Almacenamiento Local
 
-### PlanDay
-Plan semanal con bloques horarios y objetivos por día.
+### Estructura de Datos (localStorage)
 
-- `dayOfWeek`: 0-6 (Domingo-Sábado)
-- `dailyGoal`: Objetivo diario en pesos
-- `blocks`: Array JSON con `{start, end, label}`
+**Key**: `copiloto_uber_v1`
 
-### Event
-Eventos registrados (ingresos, gastos, pausas).
+```typescript
+{
+  version: 1,
+  settings: {
+    timezone: "America/Argentina/Buenos_Aires",
+    goalsByDow: {
+      0: 100000,  // Domingo
+      1: 65000,   // Lunes
+      2: 0,       // Martes (descanso)
+      3: 0,       // Miércoles (descanso)
+      4: 65000,   // Jueves
+      5: 70000,   // Viernes
+      6: 120000,  // Sábado
+    },
+    planBlocksByDow: {
+      1: [{start: "06:30", end: "09:00"}, ...],
+      // ... más días
+    }
+  },
+  events: [
+    {
+      id: "evt_...",
+      type: "INCOME" | "EXPENSE_FUEL" | "EXPENSE_KIOSCO" | "PAUSE",
+      at?: string, // ISO string
+      amount?: number,
+      // ... campos específicos según tipo
+    }
+  ]
+}
+```
 
-- `type`: INCOME | EXPENSE | PAUSE
-- `amount`: Monto (para INCOME y EXPENSE)
-- `at`: Timestamp del evento
-- Campos específicos según tipo:
-  - **INCOME**: `incomeType` (UBER|TIP|OTHER)
-  - **EXPENSE**: `expenseType` (FUEL|KIOSCO|OTHER)
-    - Si `expenseType=FUEL`: `fuelLiters`, `fuelPricePerLiter`, `fuelStation`, `fuelOdometer`
-  - **PAUSE**: `pauseStartAt`, `pauseEndAt`, `pauseReason` (SLEEP|FOOD|REST)
+### Funciones de Storage
+
+- `getState()`: Obtener estado actual
+- `addEvent(event)`: Agregar evento
+- `updateEvent(id, updates)`: Actualizar evento
+- `deleteEvent(id)`: Eliminar evento
+- `updateDayGoal(dayOfWeek, goal)`: Actualizar objetivo del día
+- `exportData()`: Exportar a JSON
+- `importData(json, merge)`: Importar desde JSON
+- `resetData()`: Resetear todos los datos
+
+## 🎯 Uso de la Aplicación
+
+### Página Principal (Hoy)
+
+- **Acciones Rápidas**: Grid 2x2 de botones grandes (Ingreso, Nafta, Kiosco, Pausa)
+- **Totales de Hoy**: Cards con bruto, gastos, neto, progreso
+- **Movimientos de Hoy**: Grid de mini-cards editables (máx 6)
+- **Bloques de Hoy**: Chips con horarios planificados
+- **Export/Import**: Botones en el header
+
+### Historial
+
+- Filtrar eventos por fecha y tipo
+- Editar o eliminar eventos
+- Cerrar pausas activas
+- Cards individuales por evento
+
+### Semana
+
+- Navegación semana anterior/siguiente
+- Cards apiladas por día (Lunes-Domingo)
+- Card "Total Semana" destacada
+- Empty state cuando no hay datos
+
+## 📊 Export/Import de Datos
+
+### Exportar
+
+1. Click en botón "Exportar" (icono descarga) en el header
+2. Se descarga un archivo JSON con todos tus datos
+3. Guarda este archivo como backup
+
+### Importar
+
+1. Click en botón "Importar" (icono subida) en el header
+2. Selecciona el archivo JSON
+3. Elige:
+   - **Combinar**: Agrega eventos a los existentes
+   - **Reemplazar**: Reemplaza todos los datos
+
+### Reset
+
+En modo desarrollo, hay un botón "Resetear Todos los Datos" que limpia localStorage.
+
+## 🧪 Datos de Ejemplo
+
+En modo desarrollo, hay un botón "Cargar Datos Demo" que agrega eventos de ejemplo distribuidos en la semana actual para probar la aplicación.
 
 ## 🚀 Deploy a Vercel
 
@@ -157,30 +179,19 @@ Asegúrate de que el proyecto esté en un repositorio Git (GitHub, GitLab, etc.)
 
 1. Ir a [Vercel](https://vercel.com)
 2. Importar el repositorio
-3. Configurar variables de entorno:
-   - `DATABASE_URL`: Connection string de tu base de datos (Neon/Supabase)
+3. **NO necesitas configurar variables de entorno** (no hay backend)
 
-### 3. Configurar Build Command
+### 3. Deploy
 
-Vercel detectará automáticamente Next.js, pero asegúrate de que el build command incluya:
+Vercel detectará automáticamente Next.js y desplegará. El build es:
 
 ```bash
-prisma generate && next build
+next build
 ```
 
-### 4. Configurar Post-deploy (opcional)
+### 4. Listo
 
-Si quieres ejecutar migraciones automáticamente, puedes agregar un script en `package.json`:
-
-```json
-"vercel-build": "prisma generate && prisma migrate deploy && next build"
-```
-
-Y configurarlo en Vercel como build command.
-
-### 5. Deploy
-
-Vercel desplegará automáticamente en cada push a la rama principal.
+La app funcionará completamente en el navegador del usuario. Cada usuario tiene su propio localStorage.
 
 ## 📝 Scripts Disponibles
 
@@ -188,122 +199,51 @@ Vercel desplegará automáticamente en cada push a la rama principal.
 # Desarrollo
 npm run dev              # Iniciar servidor de desarrollo
 
-# Base de datos
-npm run db:migrate       # Ejecutar migraciones
-npm run db:seed          # Poblar datos iniciales
-npm run db:studio        # Abrir Prisma Studio
-npm run db:generate      # Generar cliente Prisma
-
 # Producción
 npm run build            # Build de producción
 npm start                # Iniciar servidor de producción
 ```
 
-## 🎯 Uso de la Aplicación
-
-### Página Principal (Hoy)
-
-- Ver objetivo del día (editable)
-- Ver métricas: bruto, gastos (nafta + kiosco), neto, $/hora
-- Ver progreso vs objetivo
-- Ver bloques planificados del día
-- Registrar eventos rápidamente (Ingreso, Nafta, Kiosco, Pausa)
-- Ver últimos registros con acciones editar/borrar
-- Botón "Cargar ejemplo" (solo en desarrollo)
-
-### Historial
-
-- Filtrar eventos por fecha y tipo (Ingreso, Gastos, Pausas)
-- Editar o eliminar eventos
-- Cerrar pausas activas
-- Timeline completo de eventos del día
-
-### Semana
-
-- Ver resumen semanal con datos reales
-- Columnas: Día, Objetivo, Bruto, Nafta, Kiosco, Gastos, Neto, Horas, $/h Neto
-- Navegar entre semanas (anterior/siguiente)
-- Ver totales y promedios semanales
-
 ## 🔧 Configuración del Plan Semanal
 
-El plan semanal se configura en el seed (`prisma/seed.ts`). Por defecto incluye:
+El plan semanal está en `lib/storage.ts` en el estado inicial (`defaultState`). Puedes editarlo directamente o desde la UI (objetivos editables).
 
+Por defecto:
 - **Lunes, Jueves, Viernes**: 06:30-09:00, 14:00-16:30, 21:00-23:00
 - **Sábado**: 04:00-08:00, 18:00-23:00
 - **Domingo**: 04:00-08:00, 18:00-22:00
 - **Martes, Miércoles**: Descanso (sin bloques)
 
-Los objetivos diarios se pueden editar desde la UI en la página principal.
+## ⚠️ Limitaciones
 
-## 📊 Rangos de Referencia
+- **localStorage tiene límite**: ~5-10MB dependiendo del navegador
+- **Sin sincronización**: Los datos solo están en el navegador del usuario
+- **Sin backup automático**: Usa Export para hacer backups manuales
+- **Sin multi-dispositivo**: Cada navegador/dispositivo tiene sus propios datos
 
-La aplicación muestra rangos de referencia (no usados para cálculos):
+## 💡 Tips
 
-- Semana mañana: $5k-$9k/h
-- Semana mediodía: $7.5k-$12k/h
-- Semana noche: $10k-$12k/h
-- Finde madrugada/noche: $10k-$16k/h
-- Finde mañana/mediodía: $7.5k-$12k/h
-
-## 🔄 Cambios Recientes (MVP Completo)
-
-### Modelo de Datos Actualizado
-
-- **Cambio**: `FUEL` → `EXPENSE` con `expenseType` (FUEL|KIOSCO|OTHER)
-- **Nuevo tipo de gasto**: KIOSCO para registrar gastos menores (café, snacks, etc.)
-- Todos los eventos ahora usan el modelo unificado con campos opcionales según tipo
-
-### Funcionalidades Agregadas
-
-1. **CRUD Completo**: Crear, editar y borrar eventos desde la UI
-2. **Formulario Kiosco**: Nuevo formulario para registrar gastos de kiosco
-3. **Lista de Últimos Registros**: En la página principal con acciones editar/borrar
-4. **Botón "Cargar Ejemplo"**: Crea eventos de ejemplo para testing (solo desarrollo)
-5. **Página Semana Mejorada**: Muestra datos reales con cálculos correctos, incluye Kiosco
-
-### Migración de Base de Datos
-
-Al actualizar, necesitarás ejecutar:
-
-```bash
-npm run db:migrate
-```
-
-Esto actualizará el schema para usar `EXPENSE` en lugar de `FUEL`.
+1. **Haz backups regulares**: Usa Export para guardar tus datos
+2. **Si cambias de navegador**: Exporta antes y luego Importa en el nuevo
+3. **Si limpias el navegador**: Los datos se pierden, por eso es importante Exportar
 
 ## 🐛 Troubleshooting
 
-### Error de conexión a la base de datos
+### Los datos desaparecieron
 
-- Verificar que `DATABASE_URL` esté correctamente configurada
-- Verificar que la base de datos esté accesible
-- Para Neon/Supabase, verificar que el SSL esté habilitado
+- Verifica que no hayas limpiado el localStorage del navegador
+- Si tienes un backup (JSON), usa Import para restaurarlo
 
-### Error en migraciones
+### Error al importar
 
-```bash
-# Resetear base de datos (CUIDADO: borra todos los datos)
-npx prisma migrate reset
+- Verifica que el archivo JSON sea válido
+- Asegúrate de que el formato coincida con el schema
 
-# O crear una nueva migración
-npm run db:migrate
-```
+### La semana muestra datos incorrectos
 
-### Error en build de Vercel
-
-- Verificar que `DATABASE_URL` esté configurada en Vercel
-- Verificar que el build command incluya `prisma generate`
-- Revisar logs de build en Vercel
-
-## 📄 Licencia
-
-Este proyecto es de uso personal.
-
-## 🤝 Contribuciones
-
-Este es un proyecto personal, pero las sugerencias son bienvenidas.
+- Verifica que la fecha/hora de tu dispositivo esté correcta
+- La app usa timezone Argentina (America/Argentina/Buenos_Aires)
 
 ---
 
-Desarrollado con ❤️ para conductores Uber
+Desarrollado con ❤️ para conductores Uber - 100% local, 100% tuyo

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,16 +18,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { addEvent, updateEvent, getState, type Event } from "@/lib/storage";
 
 interface PauseFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
-  activePause?: {
-    id: string;
-    pauseStartAt: Date;
-    pauseReason: string | null;
-  } | null;
+  activePause?: Event | null;
 }
 
 export function PauseForm({
@@ -42,21 +39,24 @@ export function PauseForm({
   const handleStartPause = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/events", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "PAUSE",
-          pauseStartAt: new Date().toISOString(),
-          pauseEndAt: null,
-          pauseReason: reason,
-        }),
-      });
+      // Verificar que no haya pausa activa
+      const state = getState();
+      const hasActive = state.events.some(
+        (e: Event) => e.type === "PAUSE" && e.pauseStartAt && !e.pauseEndAt
+      );
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Error al iniciar pausa");
+      if (hasActive) {
+        alert("Ya existe una pausa activa");
+        setLoading(false);
+        return;
       }
+
+      addEvent({
+        type: "PAUSE",
+        pauseStartAt: new Date().toISOString(),
+        pauseEndAt: undefined,
+        pauseReason: reason,
+      });
 
       onSuccess();
       onOpenChange(false);
@@ -73,17 +73,9 @@ export function PauseForm({
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/events/${activePause.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pauseEndAt: new Date().toISOString(),
-        }),
+      updateEvent(activePause.id, {
+        pauseEndAt: new Date().toISOString(),
       });
-
-      if (!response.ok) {
-        throw new Error("Error al terminar pausa");
-      }
 
       onSuccess();
       onOpenChange(false);

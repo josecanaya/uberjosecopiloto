@@ -1,178 +1,190 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, TrendingUp, TrendingDown, Clock, Target, Pencil, Trash2, DollarSign, Fuel, ShoppingBag } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Target, Pencil, Trash2, DollarSign, Fuel, ShoppingBag, Clock, Download, Upload, RotateCcw } from "lucide-react";
 import { IncomeForm } from "@/components/forms/income-form";
 import { FuelForm } from "@/components/forms/fuel-form";
 import { KioscoForm } from "@/components/forms/kiosco-form";
 import { PauseForm } from "@/components/forms/pause-form";
-import { formatCurrency, formatTime, formatDuration, formatDateTime, getArgentinaDate } from "@/lib/utils";
-
-interface Stats {
-  bruto: number;
-  gastoNafta: number;
-  gastoKiosco: number;
-  gastosTotal: number;
-  neto: number;
-  pausasMinutos: number;
-  horasPlanificadas: number;
-  horasEfectivas: number;
-  porHoraNeto: number;
-  planDay: {
-    id: string;
-    dayOfWeek: number;
-    dailyGoal: number;
-    blocks: Array<{ start: string; end: string; label?: string }>;
-  } | null;
-}
-
-interface Event {
-  id: string;
-  type: string;
-  amount: number | null;
-  at: string;
-  note: string | null;
-  incomeType: string | null;
-  expenseType: string | null;
-  pauseStartAt: string | null;
-  pauseEndAt: string | null;
-  pauseReason: string | null;
-}
+import { formatCurrency, formatTime, getArgentinaDate, getDayOfWeek } from "@/lib/utils";
+import { getState, updateDayGoal, deleteEvent, importData, resetData, defaultState, updateWeeklyGoal, type Event } from "@/lib/storage";
+import { calculateDayStats } from "@/lib/calculations";
+import { loadDemoData } from "@/lib/demo-data";
+import { ManualAdjustmentForm } from "@/components/forms/manual-adjustment-form";
 
 export default function HomePage() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [events, setEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Inicializar SIEMPRE con estado por defecto para evitar problemas de hidratación
+  // Luego actualizamos en useEffect solo en el cliente
+  const [state, setState] = useState(defaultState);
   const [incomeOpen, setIncomeOpen] = useState(false);
   const [fuelOpen, setFuelOpen] = useState(false);
   const [kioscoOpen, setKioscoOpen] = useState(false);
   const [pauseOpen, setPauseOpen] = useState(false);
-  const [activePause, setActivePause] = useState<{ id: string; pauseStartAt: Date; pauseReason: string | null } | null>(null);
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalValue, setGoalValue] = useState("");
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  const [loadingExample, setLoadingExample] = useState(false);
+  const [activePause, setActivePause] = useState<Event | null>(null);
+  const [manualAdjustmentOpen, setManualAdjustmentOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   const today = getArgentinaDate();
-  const todayStr = today.toISOString().split("T")[0];
+  const dayOfWeek = getDayOfWeek(today);
+  const goal = state.settings.goalsByDow[dayOfWeek] || 0;
+  const planBlocks = state.settings.planBlocksByDow[dayOfWeek] || [];
 
-  const fetchStats = async () => {
-    try {
-      const response = await fetch(`/api/stats?period=day&date=${todayStr}`);
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-        if (data.planDay) {
-          setGoalValue(data.planDay.dailyGoal.toString());
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching stats:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Obtener clave de fecha para ajustes manuales (YYYY-MM-DD)
+  const dateKey = today.toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
+  
+  // Obtener ajuste manual del state (no directamente de localStorage para evitar problemas de hidratación)
+  const manualAdjustment = state.manualAdjustments?.[dateKey];
 
-  const fetchEvents = async () => {
-    try {
-      const response = await fetch(`/api/events?date=${todayStr}`);
-      if (response.ok) {
-        const data: Event[] = await response.json();
-        setEvents(data.slice(0, 5)); // Últimos 5 eventos
-        
-        // Buscar pausa activa
-        const active = data.find((e) => e.type === "PAUSE" && !e.pauseEndAt);
-        if (active && active.pauseStartAt) {
-          setActivePause({
-            id: active.id,
-            pauseStartAt: new Date(active.pauseStartAt),
-            pauseReason: active.pauseReason,
-          });
-        } else {
-          setActivePause(null);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching events:", error);
-    }
-  };
+  // Calcular estadísticas del día
+  const stats = calculateDayStats(state.events, today, planBlocks, goal, manualAdjustment);
 
+  // Cargar estado real después del montaje y marcar como montado
   useEffect(() => {
-    fetchStats();
-    fetchEvents();
+    setState(getState());
+    setMounted(true);
   }, []);
 
+  // Eventos de hoy (máximo 6)
+  const todayEvents = state.events
+    .filter((e) => {
+      if (!e.at && !e.pauseStartAt) return false;
+      const eventDate = new Date(e.at || e.pauseStartAt || "");
+      const todayStr = today.toLocaleDateString("en-US", { timeZone: "America/Argentina/Buenos_Aires" });
+      const eventStr = eventDate.toLocaleDateString("en-US", { timeZone: "America/Argentina/Buenos_Aires" });
+      return todayStr === eventStr;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.at || a.pauseStartAt || 0).getTime();
+      const dateB = new Date(b.at || b.pauseStartAt || 0).getTime();
+      return dateB - dateA; // Más recientes primero
+    })
+    .slice(0, 6);
+
+  // Buscar pausa activa
+  useEffect(() => {
+    const active = state.events.find(
+      (e) => e.type === "PAUSE" && e.pauseStartAt && !e.pauseEndAt
+    );
+    setActivePause(active || null);
+  }, [state.events]);
+
+  // Actualizar goal value cuando cambia
+  useEffect(() => {
+    setGoalValue(goal.toString());
+  }, [goal]);
+
+  const refreshState = () => {
+    setState(getState());
+  };
+
   const handleSuccess = () => {
-    fetchStats();
-    fetchEvents();
+    refreshState();
     setEditingEvent(null);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("¿Estás seguro de eliminar este evento?")) return;
-    try {
-      const response = await fetch(`/api/events/${id}`, {
-        method: "DELETE",
-      });
-      if (response.ok) {
-        handleSuccess();
-      }
-    } catch (error) {
-      console.error("Error deleting event:", error);
-      alert("Error al eliminar evento");
-    }
+  const handleDelete = (id: string) => {
+    if (!confirm("¿Eliminar este movimiento?")) return;
+    deleteEvent(id);
+    refreshState();
   };
 
   const handleEdit = (event: Event) => {
     setEditingEvent(event);
     if (event.type === "INCOME") {
       setIncomeOpen(true);
-    } else if (event.type === "EXPENSE" && event.expenseType === "FUEL") {
+    } else if (event.type === "EXPENSE_FUEL") {
       setFuelOpen(true);
-    } else if (event.type === "EXPENSE" && event.expenseType === "KIOSCO") {
+    } else if (event.type === "EXPENSE_KIOSCO") {
       setKioscoOpen(true);
     }
   };
 
-  const handleGoalSave = async () => {
-    if (!stats?.planDay) return;
+  const handleGoalSave = () => {
+    updateDayGoal(dayOfWeek, parseFloat(goalValue));
+    refreshState();
+    setEditingGoal(false);
+  };
+
+  const handleExport = () => {
+    const data = JSON.stringify(getState(), null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `copiloto_uber_${new Date().toISOString().split("T")[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const json = event.target?.result as string;
+          const merge = confirm("¿Deseas combinar con los datos existentes? (Cancelar = reemplazar todo)");
+          
+          importData(json, merge);
+          refreshState();
+          alert("Datos importados correctamente");
+        } catch (error) {
+          alert("Error al importar datos: " + (error as Error).message);
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  };
+
+  const handleReset = () => {
+    if (!confirm("¿Estás seguro? Esto eliminará TODOS los datos.")) return;
+    if (!confirm("Esta acción NO se puede deshacer. ¿Continuar?")) return;
+    
+    resetData();
+    refreshState();
+    alert("Datos reseteados");
+  };
+
+  const handleLoadDemo = () => {
+    if (!confirm("¿Cargar datos de ejemplo? Esto agregará eventos a la semana actual.")) return;
     try {
-      const response = await fetch("/api/plan-days", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: stats.planDay.id,
-          dailyGoal: parseFloat(goalValue),
-        }),
-      });
-      if (response.ok) {
-        setEditingGoal(false);
-        fetchStats();
-      }
+      const count = loadDemoData();
+      refreshState();
+      alert(`${count} eventos de ejemplo agregados`);
     } catch (error) {
-      console.error("Error updating goal:", error);
+      console.error(error);
+      alert("Error al cargar datos de ejemplo");
     }
   };
 
-  const getEventIcon = (type: string, expenseType?: string | null) => {
+  const getEventIcon = (type: string) => {
     if (type === "INCOME") return <DollarSign className="h-4 w-4 text-green-600" />;
-    if (type === "EXPENSE" && expenseType === "FUEL") return <Fuel className="h-4 w-4 text-red-600" />;
-    if (type === "EXPENSE" && expenseType === "KIOSCO") return <ShoppingBag className="h-4 w-4 text-orange-600" />;
+    if (type === "EXPENSE_FUEL") return <Fuel className="h-4 w-4 text-red-600" />;
+    if (type === "EXPENSE_KIOSCO") return <ShoppingBag className="h-4 w-4 text-orange-600" />;
     if (type === "PAUSE") return <Clock className="h-4 w-4 text-blue-600" />;
     return null;
   };
 
   const getEventLabel = (event: Event) => {
     if (event.type === "INCOME") {
-      return `Ingreso: ${formatCurrency(event.amount || 0)}`;
+      return `Ingreso ${formatCurrency(event.amount || 0)}`;
     }
-    if (event.type === "EXPENSE" && event.expenseType === "FUEL") {
-      return `Nafta: ${formatCurrency(event.amount || 0)}`;
+    if (event.type === "EXPENSE_FUEL") {
+      return `Nafta ${formatCurrency(event.amount || 0)}`;
     }
-    if (event.type === "EXPENSE" && event.expenseType === "KIOSCO") {
-      return `Kiosco: ${formatCurrency(event.amount || 0)}`;
+    if (event.type === "EXPENSE_KIOSCO") {
+      return `Kiosco ${formatCurrency(event.amount || 0)}`;
     }
     if (event.type === "PAUSE") {
       return "Pausa";
@@ -180,21 +192,16 @@ export default function HomePage() {
     return "";
   };
 
-  if (loading) {
-    return <div className="text-center py-8">Cargando...</div>;
-  }
-
-  if (!stats) {
-    return <div className="text-center py-8">Error al cargar datos</div>;
-  }
-
-  const objetivo = stats.planDay?.dailyGoal || 0;
-  const progreso = objetivo > 0 ? (stats.neto / objetivo) * 100 : 0;
-  const faltante = Math.max(0, objetivo - stats.neto);
-  const tiempoEstimado = stats.porHoraNeto > 0 ? faltante / stats.porHoraNeto : 0;
+  const progreso = goal > 0 ? (stats.bruto / goal) * 100 : 0;
+  const faltante = Math.max(0, goal - stats.bruto);
 
   const now = getArgentinaDate();
-  const currentTime = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+  const currentTime = now.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: "America/Argentina/Buenos_Aires",
+  });
 
   const getBlockStatus = (start: string, end: string) => {
     if (currentTime < start) return "future";
@@ -203,11 +210,12 @@ export default function HomePage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Hoy</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl font-bold">Hoy</h1>
+          <p className="text-sm text-muted-foreground">
             {today.toLocaleDateString("es-AR", {
               weekday: "long",
               day: "numeric",
@@ -215,264 +223,257 @@ export default function HomePage() {
             })}
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={async () => {
-            setLoadingExample(true);
-            try {
-              const response = await fetch("/api/seed-example", {
-                method: "POST",
-              });
-              if (response.ok) {
-                handleSuccess();
-              } else {
-                const error = await response.json();
-                alert(error.error || "Error al cargar ejemplo");
-              }
-            } catch (error) {
-              console.error(error);
-              alert("Error al cargar ejemplo");
-            } finally {
-              setLoadingExample(false);
-            }
-          }}
-          disabled={loadingExample}
-        >
-          {loadingExample ? "Cargando..." : "Cargar Ejemplo"}
-        </Button>
+        <div className="flex gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleExport}
+            className="h-8 w-8 p-0"
+            title="Exportar datos"
+          >
+            <Download className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleImport}
+            className="h-8 w-8 p-0"
+            title="Importar datos"
+          >
+            <Upload className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
-      {/* Objetivo del día */}
+      {/* Acciones Rápidas */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            Objetivo del Día
-          </CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Acciones Rápidas</CardTitle>
         </CardHeader>
         <CardContent>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              size="lg"
+              className="h-16 flex-col gap-2 bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => {
+                setEditingEvent(null);
+                setIncomeOpen(true);
+              }}
+            >
+              <Plus className="h-5 w-5" />
+              <span className="text-sm font-semibold">Ingreso</span>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-16 flex-col gap-2 border-red-300 text-red-600 hover:bg-red-50"
+              onClick={() => {
+                setEditingEvent(null);
+                setFuelOpen(true);
+              }}
+            >
+              <Fuel className="h-5 w-5" />
+              <span className="text-sm font-semibold">Nafta</span>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-16 flex-col gap-2 border-orange-300 text-orange-600 hover:bg-orange-50"
+              onClick={() => {
+                setEditingEvent(null);
+                setKioscoOpen(true);
+              }}
+            >
+              <ShoppingBag className="h-5 w-5" />
+              <span className="text-sm font-semibold">Kiosco</span>
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="h-16 flex-col gap-2 border-blue-300 text-blue-600 hover:bg-blue-50"
+              onClick={() => setPauseOpen(true)}
+            >
+              <Clock className="h-5 w-5" />
+              <span className="text-sm font-semibold">
+                {activePause ? "Terminar" : "Pausa"}
+              </span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Totales de Hoy */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span>Totales de Hoy</span>
+              {mounted && manualAdjustment && (
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                  Manual
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setManualAdjustmentOpen(true)}
+                className="h-6 px-2 text-xs"
+                title="Editar valores manualmente"
+              >
+                <Pencil className="h-3 w-3 mr-1" />
+                Editar
+              </Button>
+              {goal > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setEditingGoal(true)}
+                  className="h-6 px-2 text-xs"
+                  title="Editar objetivo"
+                >
+                  Objetivo
+                </Button>
+              )}
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* Objetivo Neto */}
           {editingGoal ? (
             <div className="flex gap-2">
               <input
                 type="number"
                 value={goalValue}
                 onChange={(e) => setGoalValue(e.target.value)}
-                className="flex-1 rounded-md border border-input bg-background px-3 py-2"
+                className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
                 autoFocus
+                placeholder="Objetivo neto (después de gastos)"
               />
-              <Button size="sm" onClick={handleGoalSave}>
-                Guardar
+              <Button size="sm" onClick={handleGoalSave} className="h-9">
+                ✓
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => {
                   setEditingGoal(false);
-                  setGoalValue(stats.planDay?.dailyGoal.toString() || "0");
+                  setGoalValue(goal.toString());
                 }}
+                className="h-9"
               >
-                Cancelar
+                ✕
               </Button>
             </div>
           ) : (
-            <div className="flex items-center justify-between">
-              <span className="text-2xl font-bold">
-                {formatCurrency(objetivo)}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setEditingGoal(true)}
-              >
-                Editar
-              </Button>
+            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-muted-foreground" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">Objetivo</span>
+                </div>
+              </div>
+              <span className="text-lg font-bold" suppressHydrationWarning>{formatCurrency(goal)}</span>
             </div>
           )}
-        </CardContent>
-      </Card>
 
-      {/* Métricas principales */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Bruto</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
-              {formatCurrency(stats.bruto)}
-            </div>
-          </CardContent>
-        </Card>
+          {/* Bruto */}
+          <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+            <span className="text-sm font-medium text-green-900">Bruto</span>
+            <span className="text-xl font-bold text-green-700" suppressHydrationWarning>{formatCurrency(stats.bruto)}</span>
+          </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Gastos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
-              {formatCurrency(stats.gastosTotal)}
+          {/* Gastos */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between p-2 bg-red-50 rounded-lg border border-red-200">
+              <span className="text-xs font-medium text-red-900">Nafta</span>
+              <span className="text-base font-semibold text-red-700" suppressHydrationWarning>{formatCurrency(stats.gastoNafta)}</span>
             </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Nafta: {formatCurrency(stats.gastoNafta)} | Kiosco: {formatCurrency(stats.gastoKiosco)}
+            <div className="flex items-center justify-between p-2 bg-orange-50 rounded-lg border border-orange-200">
+              <span className="text-xs font-medium text-orange-900">Kiosco</span>
+              <span className="text-base font-semibold text-orange-700" suppressHydrationWarning>{formatCurrency(stats.gastoKiosco)}</span>
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex items-center justify-between p-3 bg-red-100 rounded-lg border-2 border-red-300">
+              <span className="text-sm font-semibold text-red-900">Total Gastos</span>
+              <span className="text-lg font-bold text-red-700" suppressHydrationWarning>{formatCurrency(stats.gastosTotal)}</span>
+            </div>
+          </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Neto</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(stats.neto)}
-            </div>
-          </CardContent>
-        </Card>
+          {/* Neto */}
+          <div className="flex items-center justify-between p-4 bg-primary/10 rounded-lg border-2 border-primary">
+            <span className="text-base font-semibold">Neto</span>
+            <span className="text-2xl font-bold" suppressHydrationWarning>{formatCurrency(stats.neto)}</span>
+          </div>
 
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">$/hora Neto</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {formatCurrency(stats.porHoraNeto)}
+          {/* Progreso */}
+          <div className="space-y-2">
+            <div className="flex justify-between text-xs">
+              <span className="text-muted-foreground">Progreso hacia objetivo</span>
+              <span className="font-semibold">{progreso.toFixed(1)}%</span>
             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Progreso */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Progreso</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <div className="flex justify-between text-sm mb-2">
-              <span>Progreso</span>
-              <span>{progreso.toFixed(1)}%</span>
-            </div>
-            <div className="w-full bg-secondary rounded-full h-4">
+            <div className="w-full bg-secondary rounded-full h-3">
               <div
-                className="bg-primary h-4 rounded-full transition-all"
+                className="bg-primary h-3 rounded-full transition-all"
                 style={{ width: `${Math.min(100, progreso)}%` }}
               />
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="text-muted-foreground">Faltante:</span>
-              <div className="text-lg font-semibold">
-                {formatCurrency(faltante)}
+            {faltante > 0 && (
+              <div className="text-center text-sm text-muted-foreground">
+                Faltan {formatCurrency(faltante)}
               </div>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Horas efectivas:</span>
-              <div className="text-lg font-semibold">
-                {stats.horasEfectivas.toFixed(1)}h
-              </div>
-            </div>
+            )}
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Recomendación */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recomendación</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {stats.neto >= objetivo ? (
-            <div className="flex items-center gap-2 text-green-600">
-              <TrendingUp className="h-5 w-5" />
-              <span className="font-semibold">Objetivo logrado → cortar</span>
+          {/* Horas y $/h */}
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t text-sm">
+            <div>
+              <div className="text-xs text-muted-foreground">Horas planificadas</div>
+              <div className="text-sm font-semibold">{stats.horasPlanificadas.toFixed(1)}h</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">Horas efectivas</div>
+              <div className="text-sm font-semibold">{stats.horasEfectivas.toFixed(1)}h</div>
+            </div>
+            <div className="col-span-2">
+              <div className="text-xs text-muted-foreground">$/hora neto</div>
+              <div className="text-base font-bold">{formatCurrency(stats.porHoraNeto)}</div>
+            </div>
+          </div>
+
+          {/* Recomendación */}
+          {stats.bruto >= goal ? (
+            <div className="flex items-center gap-2 p-3 bg-green-100 rounded-lg border border-green-300">
+              <TrendingUp className="h-5 w-5 text-green-700" />
+              <span className="text-sm font-semibold text-green-900">¡Objetivo logrado!</span>
             </div>
           ) : (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-orange-600">
-                <TrendingDown className="h-5 w-5" />
-                <span className="font-semibold">
+            <div className="flex items-center gap-2 p-3 bg-orange-100 rounded-lg border border-orange-300">
+              <TrendingDown className="h-5 w-5 text-orange-700" />
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-orange-900">
                   Faltan {formatCurrency(faltante)}
-                </span>
-              </div>
-              {stats.porHoraNeto > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Tiempo estimado: {tiempoEstimado.toFixed(1)} horas
-                </p>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Últimos registros */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Últimos Registros</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {events.length === 0 ? (
-            <div className="text-center py-4 text-muted-foreground">
-              No hay eventos registrados hoy
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {events.map((event) => (
-                <div
-                  key={event.id}
-                  className="flex items-center justify-between p-3 rounded-md border hover:bg-muted/50"
-                >
-                  <div className="flex items-center gap-3 flex-1">
-                    {getEventIcon(event.type, event.expenseType)}
-                    <div className="flex-1">
-                      <div className="font-medium">{getEventLabel(event)}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {formatTime(new Date(event.at))}
-                      </div>
-                      {event.note && (
-                        <div className="text-xs text-muted-foreground mt-1">
-                          {event.note}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    {event.type !== "PAUSE" && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEdit(event)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDelete(event.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
                 </div>
-              ))}
+                {stats.porHoraNeto > 0 && (
+                  <div className="text-xs text-orange-700">
+                    ~{(faltante / (stats.bruto / Math.max(stats.horasEfectivas, 0.1))).toFixed(1)}h más para alcanzar el objetivo
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
       {/* Bloques de hoy */}
-      {stats.planDay && stats.planDay.blocks && stats.planDay.blocks.length > 0 && (
+      {planBlocks.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Bloques de Hoy</CardTitle>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Bloques de Hoy</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {stats.planDay.blocks.map((block: any, index: number) => {
+              {planBlocks.map((block, index) => {
                 const status = getBlockStatus(block.start, block.end);
                 return (
                   <div
@@ -485,17 +486,10 @@ export default function HomePage() {
                         : ""
                     }`}
                   >
-                    <div>
-                      <div className="font-medium">
-                        {block.start} - {block.end}
-                      </div>
-                      {block.label && (
-                        <div className="text-sm text-muted-foreground">
-                          {block.label}
-                        </div>
-                      )}
+                    <div className="font-medium text-sm">
+                      {block.start} - {block.end}
                     </div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       {status === "current" && "En curso"}
                       {status === "past" && "Pasado"}
                       {status === "future" && "Próximo"}
@@ -508,74 +502,105 @@ export default function HomePage() {
         </Card>
       )}
 
-      {/* Pausas */}
+      {/* Últimos Movimientos */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Pausas
-          </CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Movimientos de Hoy</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-2xl font-bold">
-            {formatDuration(stats.pausasMinutos)}
-          </div>
-          {activePause && (
-            <div className="mt-2 text-sm text-orange-600">
-              Pausa activa desde {formatTime(activePause.pauseStartAt)}
+          {todayEvents.length === 0 ? (
+            <div className="text-center py-8 space-y-4">
+              <div className="text-muted-foreground text-sm">
+                Todavía no cargaste movimientos
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIncomeOpen(true)}
+                  className="text-xs"
+                >
+                  + Ingreso
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setFuelOpen(true)}
+                  className="text-xs"
+                >
+                  + Nafta
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              {todayEvents.map((event) => (
+                <div
+                  key={event.id}
+                  className="relative p-3 border rounded-lg hover:bg-muted/50 active:bg-muted transition-colors"
+                  onClick={() => handleEdit(event)}
+                >
+                  <div className="flex items-start gap-2">
+                    {getEventIcon(event.type)}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-xs font-medium truncate">{getEventLabel(event)}</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {formatTime(new Date(event.at || event.pauseStartAt || ""))}
+                      </div>
+                      {event.note && (
+                        <div className="text-xs text-muted-foreground truncate mt-1">
+                          {event.note}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="absolute top-1 right-1 h-6 w-6 p-0 text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(event.id);
+                    }}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* CTAs */}
-      <div className="grid gap-3 md:grid-cols-4">
-        <Button
-          size="lg"
-          className="h-16"
-          onClick={() => {
-            setEditingEvent(null);
-            setIncomeOpen(true);
-          }}
-        >
-          <Plus className="mr-2 h-5 w-5" />
-          Ingreso
-        </Button>
-        <Button
-          size="lg"
-          variant="outline"
-          className="h-16"
-          onClick={() => {
-            setEditingEvent(null);
-            setFuelOpen(true);
-          }}
-        >
-          <Plus className="mr-2 h-5 w-5" />
-          Nafta
-        </Button>
-        <Button
-          size="lg"
-          variant="outline"
-          className="h-16"
-          onClick={() => {
-            setEditingEvent(null);
-            setKioscoOpen(true);
-          }}
-        >
-          <Plus className="mr-2 h-5 w-5" />
-          Kiosco
-        </Button>
-        <Button
-          size="lg"
-          variant="outline"
-          className="h-16"
-          onClick={() => setPauseOpen(true)}
-        >
-          <Plus className="mr-2 h-5 w-5" />
-          {activePause ? "Terminar Pausa" : "Pausa"}
-        </Button>
-      </div>
+      {/* Configuración (solo dev) */}
+      {process.env.NODE_ENV !== "production" && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Datos de Ejemplo</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleLoadDemo}
+              className="w-full"
+            >
+              Cargar Datos Demo
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleReset}
+              className="w-full"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Resetear Todos los Datos
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
+      {/* Modales */}
       <IncomeForm
         open={incomeOpen}
         onOpenChange={(open) => {
@@ -583,7 +608,7 @@ export default function HomePage() {
           if (!open) setEditingEvent(null);
         }}
         onSuccess={handleSuccess}
-        defaultDate={today}
+        editingEvent={editingEvent && editingEvent.type === "INCOME" ? editingEvent : null}
       />
       <FuelForm
         open={fuelOpen}
@@ -592,7 +617,7 @@ export default function HomePage() {
           if (!open) setEditingEvent(null);
         }}
         onSuccess={handleSuccess}
-        defaultDate={today}
+        editingEvent={editingEvent && editingEvent.type === "EXPENSE_FUEL" ? editingEvent : null}
       />
       <KioscoForm
         open={kioscoOpen}
@@ -601,14 +626,25 @@ export default function HomePage() {
           if (!open) setEditingEvent(null);
         }}
         onSuccess={handleSuccess}
-        defaultDate={today}
-        editingEvent={editingEvent && editingEvent.type === "EXPENSE" && editingEvent.expenseType === "KIOSCO" ? editingEvent : null}
+        editingEvent={editingEvent && editingEvent.type === "EXPENSE_KIOSCO" ? editingEvent : null}
       />
       <PauseForm
         open={pauseOpen}
         onOpenChange={setPauseOpen}
         onSuccess={handleSuccess}
         activePause={activePause}
+      />
+      <ManualAdjustmentForm
+        open={manualAdjustmentOpen}
+        onOpenChange={setManualAdjustmentOpen}
+        dateKey={dateKey}
+        currentValues={{
+          bruto: stats.bruto,
+          gastoNafta: stats.gastoNafta,
+          gastoKiosco: stats.gastoKiosco,
+          horasEfectivas: stats.horasEfectivas,
+        }}
+        onSuccess={handleSuccess}
       />
     </div>
   );
