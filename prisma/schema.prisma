@@ -1,0 +1,76 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Configuración para seed
+// npm run db:seed
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model PlanDay {
+  id         String   @id @default(cuid())
+  dayOfWeek  Int      @unique // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+  dailyGoal  Float    // Objetivo diario en pesos
+  blocks     Json     // Array de {start, end, label}
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@map("plan_days")
+}
+
+model Event {
+  id        String   @id @default(cuid())
+  type      EventType
+  amount    Float?   // Para INCOME y EXPENSE: monto
+  at        DateTime // Timestamp del evento
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Campos específicos para INCOME
+  incomeType IncomeType?
+
+  // Campos específicos para EXPENSE
+  expenseType ExpenseType?
+  fuelLiters        Float?   // Solo si expenseType=FUEL
+  fuelPricePerLiter Float?   // Solo si expenseType=FUEL
+  fuelStation       String?  // Solo si expenseType=FUEL
+  fuelOdometer      Int?     // Solo si expenseType=FUEL
+
+  // Campos específicos para PAUSE
+  pauseStartAt DateTime?
+  pauseEndAt   DateTime?
+  pauseReason  PauseReason?
+
+  @@map("events")
+}
+
+enum EventType {
+  INCOME
+  EXPENSE
+  PAUSE
+}
+
+enum ExpenseType {
+  FUEL
+  KIOSCO
+  OTHER
+}
+
+enum PauseReason {
+  SLEEP
+  FOOD
+  REST
+}
+
+enum IncomeType {
+  UBER
+  TIP
+  OTHER
+}
