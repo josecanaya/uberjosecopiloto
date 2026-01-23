@@ -51,7 +51,7 @@ export function PauseForm({
         return;
       }
 
-      addEvent({
+      await addEvent({
         type: "PAUSE",
         pauseStartAt: new Date().toISOString(),
         pauseEndAt: undefined,
@@ -60,6 +60,7 @@ export function PauseForm({
 
       onSuccess();
       onOpenChange(false);
+      alert("Pausa iniciada. Los cambios se guardarán en Git.");
     } catch (error: any) {
       console.error(error);
       alert(error.message || "Error al iniciar pausa");
@@ -73,12 +74,13 @@ export function PauseForm({
 
     setLoading(true);
     try {
-      updateEvent(activePause.id, {
+      await updateEvent(activePause.id, {
         pauseEndAt: new Date().toISOString(),
       });
 
       onSuccess();
       onOpenChange(false);
+      alert("Pausa finalizada. Los cambios se guardarán en Git.");
     } catch (error) {
       console.error(error);
       alert("Error al terminar pausa");

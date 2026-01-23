@@ -75,10 +75,18 @@ export default function SemanaPage() {
     setWeekStart(startOfWeek(getArgentinaDate()));
   };
 
-  const handleWeeklyGoalSave = () => {
-    updateWeeklyGoal(parseFloat(weeklyGoalValue));
-    setState(getState());
-    setEditingWeeklyGoal(false);
+  const handleWeeklyGoalSave = async () => {
+    try {
+      await updateWeeklyGoal(parseFloat(weeklyGoalValue));
+      const { reloadData } = await import("@/lib/data");
+      await reloadData();
+      setState(getState());
+      setEditingWeeklyGoal(false);
+      alert("Objetivo semanal actualizado. Los cambios se guardarán en Git.");
+    } catch (error) {
+      console.error(error);
+      alert("Error al actualizar objetivo. Verifica la consola.");
+    }
   };
 
   const weekStartStr = weekStart

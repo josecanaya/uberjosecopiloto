@@ -77,19 +77,30 @@ export default function HomePage() {
     setGoalValue(goal.toString());
   }, [goal]);
 
-  const refreshState = () => {
+  const refreshState = async () => {
+    // Recargar datos desde Git
+    if (typeof window !== "undefined") {
+      const { reloadData } = await import("@/lib/data");
+      await reloadData();
+    }
     setState(getState());
   };
 
-  const handleSuccess = () => {
-    refreshState();
+  const handleSuccess = async () => {
+    await refreshState();
     setEditingEvent(null);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("¿Eliminar este movimiento?")) return;
-    deleteEvent(id);
-    refreshState();
+    try {
+      await deleteEvent(id);
+      await refreshState();
+      alert("Evento eliminado. Los cambios se guardarán en Git.");
+    } catch (error) {
+      console.error(error);
+      alert("Error al eliminar evento. Verifica la consola.");
+    }
   };
 
   const handleEdit = (event: Event) => {
@@ -103,10 +114,16 @@ export default function HomePage() {
     }
   };
 
-  const handleGoalSave = () => {
-    updateDayGoal(dayOfWeek, parseFloat(goalValue));
-    refreshState();
-    setEditingGoal(false);
+  const handleGoalSave = async () => {
+    try {
+      await updateDayGoal(dayOfWeek, parseFloat(goalValue));
+      await refreshState();
+      setEditingGoal(false);
+      alert("Objetivo actualizado. Los cambios se guardarán en Git.");
+    } catch (error) {
+      console.error(error);
+      alert("Error al actualizar objetivo. Verifica la consola.");
+    }
   };
 
   const handleExport = () => {

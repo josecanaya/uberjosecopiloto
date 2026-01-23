@@ -76,12 +76,13 @@ export function KioscoForm({
       };
 
       if (editingEvent) {
-        updateEvent(editingEvent.id, eventData);
+        await updateEvent(editingEvent.id, eventData);
       } else {
-        addEvent(eventData);
+        await addEvent(eventData);
       }
 
       reset();
+      alert("Evento guardado. Los cambios se guardarán en Git.");
       onSuccess();
       onOpenChange(false);
     } catch (error) {

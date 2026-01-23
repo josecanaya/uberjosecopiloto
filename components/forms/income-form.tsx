@@ -88,14 +88,15 @@ export function IncomeForm({
       };
 
       if (editingEvent) {
-        updateEvent(editingEvent.id, eventData);
+        await updateEvent(editingEvent.id, eventData);
       } else {
-        addEvent(eventData);
+        await addEvent(eventData);
       }
 
       reset();
       onSuccess();
       onOpenChange(false);
+      alert("Evento guardado. Los cambios se guardarán en Git.");
     } catch (error) {
       console.error(error);
       alert("Error al guardar ingreso");

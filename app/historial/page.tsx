@@ -31,7 +31,11 @@ export default function HistorialPage() {
   const [pauseOpen, setPauseOpen] = useState(false);
   const [activePause, setActivePause] = useState<Event | null>(null);
 
-  const refreshState = () => {
+  const refreshState = async () => {
+    if (typeof window !== "undefined") {
+      const { reloadData } = await import("@/lib/data");
+      await reloadData();
+    }
     setState(getState());
   };
 
@@ -74,17 +78,29 @@ export default function HistorialPage() {
     setActivePause(active || null);
   }, [state.events]);
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!confirm("¿Eliminar este movimiento?")) return;
-    deleteEvent(id);
-    refreshState();
+    try {
+      await deleteEvent(id);
+      await refreshState();
+      alert("Evento eliminado. Los cambios se guardarán en Git.");
+    } catch (error) {
+      console.error(error);
+      alert("Error al eliminar evento. Verifica la consola.");
+    }
   };
 
-  const handleClosePause = (id: string) => {
-    updateEvent(id, {
-      pauseEndAt: new Date().toISOString(),
-    });
-    refreshState();
+  const handleClosePause = async (id: string) => {
+    try {
+      await updateEvent(id, {
+        pauseEndAt: new Date().toISOString(),
+      });
+      await refreshState();
+      alert("Pausa cerrada. Los cambios se guardarán en Git.");
+    } catch (error) {
+      console.error(error);
+      alert("Error al cerrar pausa. Verifica la consola.");
+    }
   };
 
   const handleEdit = (event: Event) => {

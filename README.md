@@ -2,22 +2,24 @@
 
 Aplicación web **100% frontend** para registrar eventos (ingresos, nafta, kiosco, pausas) y visualizar dashboards por día/semana para conductores Uber.
 
-**✨ Característica principal**: Los datos se leen desde archivos JSON en el repositorio Git (`/data/settings.json` y `/data/events.json`). Edita los archivos en GitHub y Vercel redeployará automáticamente.
+**✨ Característica principal**: Los datos se leen y guardan desde archivos JSON en el repositorio Git (`/data/settings.json` y `/data/events.json`). Puedes editar desde la UI y los cambios se guardan automáticamente en Git mediante GitHub API.
 
 ## 🚀 Stack Tecnológico
 
 - **Next.js 14** (App Router) + TypeScript
 - **Tailwind CSS** + **shadcn/ui** para UI
-- **Archivos JSON en Git** para persistencia (solo lectura desde la UI)
-- **Deploy**: Vercel (sin backend, solo estático)
+- **Archivos JSON en Git** para persistencia
+- **GitHub API** para guardar cambios desde la UI
+- **Deploy**: Vercel (con API routes para GitHub API)
 
 ## 📋 Características
 
-- ✅ **100% Frontend**: Sin backend, sin base de datos
-- ✅ **Datos desde Git**: Edita JSONs en GitHub, Vercel redeploya automáticamente
+- ✅ **100% Frontend**: Sin backend propio, usa GitHub API
+- ✅ **Datos desde Git**: Edita desde la UI o desde GitHub
+- ✅ **Guardado automático**: Los cambios desde la UI se guardan en Git automáticamente
 - ✅ **Mobile-first design perfecto** (360-430px optimizado)
 - ✅ **UX estilo "Grows"** con botones grandes tipo banco
-- ✅ Visualización de eventos (ingresos, nafta, kiosco, pausas)
+- ✅ Registro de eventos (ingresos, nafta, kiosco, pausas)
 - ✅ Dashboard diario con métricas en tiempo real
 - ✅ Vista semanal con cards apiladas (sin tablas)
 - ✅ Historial de eventos con filtros
@@ -42,7 +44,27 @@ Aplicación web **100% frontend** para registrar eventos (ingresos, nafta, kiosc
 npm install
 ```
 
-### 2. Ejecutar en desarrollo
+### 2. Configurar variables de entorno
+
+Crea un archivo `.env.local`:
+
+```env
+GITHUB_TOKEN=tu_token_de_github
+GITHUB_REPO_OWNER=josecanaya
+GITHUB_REPO_NAME=uberjosecopiloto
+GITHUB_BRANCH=main
+```
+
+**Cómo obtener GITHUB_TOKEN:**
+
+1. Ve a GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. Click en "Generate new token (classic)"
+3. Dale un nombre (ej: "Copiloto Uber")
+4. Selecciona el scope `repo` (acceso completo a repositorios)
+5. Genera el token y cópialo
+6. Pégalo en `.env.local`
+
+### 3. Ejecutar en desarrollo
 
 ```bash
 npm run dev
@@ -50,13 +72,13 @@ npm run dev
 
 Abrir [http://localhost:3000](http://localhost:3000)
 
-¡Eso es todo! No necesitas configurar nada más.
-
 ## 📁 Estructura del Proyecto
 
 ```
 copiloto/
 ├── app/                    # Next.js App Router
+│   ├── api/               # API routes
+│   │   └── git/           # Rutas para actualizar Git
 │   ├── historial/         # Página de historial
 │   ├── semana/            # Página semanal
 │   ├── turnos/            # Página de turnos (plan semanal)
@@ -69,9 +91,11 @@ copiloto/
 ├── data/                 # Datos en JSON (Git)
 │   ├── settings.json     # Configuración (objetivos, bloques)
 │   └── events.json       # Eventos registrados
+├── public/               # Archivos estáticos
+│   └── data/            # Copia de JSONs para fetch en runtime
 ├── lib/                  # Utilidades
-│   ├── data.ts           # Sistema de lectura desde JSON
-│   ├── storage.ts        # Tipos y interfaces (compatibilidad)
+│   ├── data.ts           # Sistema de lectura/escritura desde Git
+│   ├── storage.ts        # Tipos y interfaces
 │   ├── dates.ts          # Utilidades de fecha/timezone
 │   ├── calculations.ts   # Funciones de cálculo
 │   └── utils.ts          # Funciones helper
@@ -125,21 +149,16 @@ Los datos se almacenan en dos archivos JSON en el repositorio:
 ]
 ```
 
-### Cómo Editar los Datos
+### Cómo Funciona el Guardado
 
-1. **Edita los archivos JSON en GitHub**:
-   - Ve a tu repositorio en GitHub
-   - Navega a `/data/settings.json` o `/data/events.json`
-   - Haz click en el ícono de lápiz (Edit)
-   - Edita el contenido
-   - Haz commit de los cambios
+1. **Desde la UI**: Cuando agregas/editas/eliminas un evento o cambias un objetivo:
+   - Se actualiza el estado local inmediatamente
+   - Se llama a la API route `/api/git/update-settings` o `/api/git/update-events`
+   - La API route usa GitHub API para hacer commit del cambio
+   - Vercel redeployará automáticamente (si tienes webhook configurado)
 
-2. **Vercel redeployará automáticamente**:
-   - Si tienes un webhook configurado, Vercel detectará el push
-   - O puedes hacer un redeploy manual desde el dashboard de Vercel
-
-3. **Los cambios se reflejarán en la app**:
-   - Después del redeploy, la app mostrará los nuevos datos
+2. **Desde GitHub**: Puedes editar los JSONs directamente en GitHub:
+   - Los cambios se reflejarán después del redeploy de Vercel
 
 ## 🎯 Uso de la Aplicación
 
@@ -155,12 +174,12 @@ Los datos se almacenan en dos archivos JSON en el repositorio:
 
 - Filtrar eventos por fecha y tipo
 - Visualización de eventos en cards
-- Cards individuales por evento
+- Editar/eliminar eventos (se guardan en Git)
 
 ### Semana
 
 - Navegación semana anterior/siguiente
-- Objetivo semanal editable (solo visual, no persiste)
+- Objetivo semanal editable (se guarda en Git)
 - Cards apiladas por día (Lunes-Domingo)
 - Botón "Ver Días" con gráfico de barras y detalles
 - Card "Total Semana" destacada
@@ -183,15 +202,15 @@ Asegúrate de que el proyecto esté en un repositorio Git (GitHub, GitLab, etc.)
 
 1. Ir a [Vercel](https://vercel.com)
 2. Importar el repositorio
-3. **NO necesitas configurar variables de entorno** (no hay backend)
+3. **Configurar variables de entorno**:
+   - `GITHUB_TOKEN`: Tu token de GitHub (con scope `repo`)
+   - `GITHUB_REPO_OWNER`: Tu usuario de GitHub (ej: `josecanaya`)
+   - `GITHUB_REPO_NAME`: Nombre del repo (ej: `uberjosecopiloto`)
+   - `GITHUB_BRANCH`: Rama (generalmente `main`)
 
 ### 3. Deploy
 
-Vercel detectará automáticamente Next.js y desplegará. El build es:
-
-```bash
-next build
-```
+Vercel detectará automáticamente Next.js y desplegará.
 
 ### 4. Configurar Webhook (Opcional)
 
@@ -203,7 +222,7 @@ Para que Vercel redeploye automáticamente cuando edites los JSONs en GitHub:
 
 ### 5. Listo
 
-La app funcionará completamente en el navegador. Los datos se leen desde los archivos JSON en el repositorio.
+La app funcionará completamente. Los cambios desde la UI se guardarán en Git automáticamente.
 
 ## 📝 Scripts Disponibles
 
@@ -218,7 +237,9 @@ npm start                # Iniciar servidor de producción
 
 ## 🔧 Configuración del Plan Semanal
 
-El plan semanal está en `/data/settings.json`. Edita este archivo en GitHub para actualizar los horarios.
+El plan semanal está en `/data/settings.json`. Puedes editarlo:
+- **Desde la UI**: Cambiando objetivos (se guarda automáticamente)
+- **Desde GitHub**: Editando el archivo directamente
 
 Por defecto:
 - **Lunes, Jueves, Viernes**: 06:30-09:00, 14:00-16:30, 21:00-23:00
@@ -226,26 +247,26 @@ Por defecto:
 - **Domingo**: 04:00-08:00, 18:00-22:00
 - **Martes, Miércoles**: Descanso (sin bloques)
 
-## ⚠️ Limitaciones Actuales
+## ⚠️ Limitaciones
 
-- **Solo lectura desde la UI**: Los formularios no guardan datos (muestran warnings en consola)
-- **Edición manual requerida**: Debes editar los JSONs en GitHub para actualizar datos
-- **Redeploy necesario**: Después de editar JSONs, Vercel debe redeployar para ver cambios
+- **GitHub Token requerido**: Necesitas configurar `GITHUB_TOKEN` para que funcione el guardado desde la UI
+- **Redeploy necesario**: Después de editar JSONs en GitHub, Vercel debe redeployar para ver cambios
+- **Rate limits**: GitHub API tiene límites de rate, pero para uso personal no debería ser problema
 
 ## 💡 Tips
 
-1. **Edita desde GitHub**: Usa la interfaz web de GitHub para editar los JSONs fácilmente
-2. **Formato JSON válido**: Asegúrate de que el JSON sea válido antes de hacer commit
-3. **Backup**: Haz commit de tus cambios regularmente para tener historial
+1. **Guarda tu token seguro**: No compartas tu `GITHUB_TOKEN` públicamente
+2. **Edita desde la UI**: Es más fácil que editar JSONs manualmente
+3. **Backup automático**: Git guarda historial de todos los cambios
 4. **Redeploy manual**: Si el webhook no funciona, haz redeploy manual desde Vercel
 
 ## 🐛 Troubleshooting
 
-### Los datos no se actualizan
+### Los cambios no se guardan
 
-- Verifica que hayas hecho commit de los cambios en GitHub
-- Verifica que Vercel haya redeployado (revisa el dashboard)
-- Limpia la caché del navegador (Ctrl+Shift+R o Cmd+Shift+R)
+- Verifica que `GITHUB_TOKEN` esté configurado correctamente en Vercel
+- Verifica que el token tenga el scope `repo`
+- Revisa la consola del navegador para ver errores
 
 ### Error al cargar la app
 
