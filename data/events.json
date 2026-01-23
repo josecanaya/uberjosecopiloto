@@ -1,30 +1,30 @@
 [
   {
-    "id": "evt_1705852800000_abc123",
+    "id": "evt_1737586800000_abc123",
     "type": "INCOME",
-    "at": "2024-01-22T10:00:00.000Z",
+    "at": "2026-01-22T10:00:00.000Z",
     "amount": 15000,
     "incomeType": "UBER",
-    "note": "Primera hora - Lunes"
+    "note": "Primera hora - Jueves"
   },
   {
-    "id": "evt_1705856400000_def456",
+    "id": "evt_1737590400000_def456",
     "type": "INCOME",
-    "at": "2024-01-22T11:30:00.000Z",
+    "at": "2026-01-22T11:30:00.000Z",
     "amount": 12000,
     "incomeType": "UBER"
   },
   {
-    "id": "evt_1705939200000_ghi789",
+    "id": "evt_1737676800000_ghi789",
     "type": "EXPENSE_KIOSCO",
-    "at": "2024-01-23T13:00:00.000Z",
+    "at": "2026-01-23T13:00:00.000Z",
     "amount": 500,
-    "note": "Café - Martes"
+    "note": "Café - Viernes"
   },
   {
-    "id": "evt_1706104800000_jkl012",
+    "id": "evt_1737842400000_jkl012",
     "type": "EXPENSE_FUEL",
-    "at": "2024-01-25T09:00:00.000Z",
+    "at": "2026-01-25T09:00:00.000Z",
     "amount": 8000,
     "fuelLiters": 20,
     "fuelPricePerLiter": 400,
@@ -32,91 +32,91 @@
     "note": "Carga completa"
   },
   {
-    "id": "evt_1706108400000_mno345",
+    "id": "evt_1737846000000_mno345",
     "type": "INCOME",
-    "at": "2024-01-25T10:00:00.000Z",
+    "at": "2026-01-25T10:00:00.000Z",
     "amount": 18000,
     "incomeType": "UBER",
-    "note": "Mañana - Jueves"
+    "note": "Mañana - Sábado"
   },
   {
-    "id": "evt_1706125200000_pqr678",
+    "id": "evt_1737862800000_pqr678",
     "type": "INCOME",
-    "at": "2024-01-25T17:30:00.000Z",
+    "at": "2026-01-25T17:30:00.000Z",
     "amount": 20000,
     "incomeType": "UBER",
-    "note": "Mediodía - Jueves"
+    "note": "Mediodía - Sábado"
   },
   {
-    "id": "evt_1706191800000_stu901",
+    "id": "evt_1737929400000_stu901",
     "type": "INCOME",
-    "at": "2024-01-26T10:30:00.000Z",
+    "at": "2026-01-26T10:30:00.000Z",
     "amount": 16000,
     "incomeType": "UBER",
-    "note": "Mañana - Viernes"
+    "note": "Mañana - Domingo"
   },
   {
-    "id": "evt_1706197200000_vwx234",
+    "id": "evt_1737934800000_vwx234",
     "type": "EXPENSE_KIOSCO",
-    "at": "2024-01-26T12:00:00.000Z",
+    "at": "2026-01-26T12:00:00.000Z",
     "amount": 300,
     "note": "Agua y snack"
   },
   {
-    "id": "evt_1706234400000_yza567",
+    "id": "evt_1737972000000_yza567",
     "type": "INCOME",
-    "at": "2024-01-27T00:00:00.000Z",
+    "at": "2026-01-27T00:00:00.000Z",
     "amount": 22000,
-    "incomeType": "UBER",
-    "note": "Noche - Viernes"
-  },
-  {
-    "id": "evt_1706277600000_bcd890",
-    "type": "INCOME",
-    "at": "2024-01-27T08:00:00.000Z",
-    "amount": 25000,
-    "incomeType": "UBER",
-    "note": "Madrugada - Sábado"
-  },
-  {
-    "id": "evt_1706281200000_efg123",
-    "type": "EXPENSE_FUEL",
-    "at": "2024-01-27T09:00:00.000Z",
-    "amount": 10000,
-    "fuelLiters": 25,
-    "fuelPricePerLiter": 400,
-    "fuelStation": "Shell",
-    "note": "Carga sábado"
-  },
-  {
-    "id": "evt_1706313600000_hij456",
-    "type": "INCOME",
-    "at": "2024-01-27T22:00:00.000Z",
-    "amount": 30000,
-    "incomeType": "UBER",
-    "note": "Noche - Sábado"
-  },
-  {
-    "id": "evt_1706364600000_klm789",
-    "type": "INCOME",
-    "at": "2024-01-28T09:30:00.000Z",
-    "amount": 22000,
-    "incomeType": "UBER",
-    "note": "Madrugada - Domingo"
-  },
-  {
-    "id": "evt_1706394600000_nop012",
-    "type": "INCOME",
-    "at": "2024-01-28T21:30:00.000Z",
-    "amount": 28000,
     "incomeType": "UBER",
     "note": "Noche - Domingo"
   },
   {
-    "id": "evt_1706223600000_qrs345",
+    "id": "evt_1738015200000_bcd890",
+    "type": "INCOME",
+    "at": "2026-01-27T08:00:00.000Z",
+    "amount": 25000,
+    "incomeType": "UBER",
+    "note": "Madrugada - Lunes"
+  },
+  {
+    "id": "evt_1738018800000_efg123",
+    "type": "EXPENSE_FUEL",
+    "at": "2026-01-27T09:00:00.000Z",
+    "amount": 10000,
+    "fuelLiters": 25,
+    "fuelPricePerLiter": 400,
+    "fuelStation": "Shell",
+    "note": "Carga lunes"
+  },
+  {
+    "id": "evt_1738051200000_hij456",
+    "type": "INCOME",
+    "at": "2026-01-27T22:00:00.000Z",
+    "amount": 30000,
+    "incomeType": "UBER",
+    "note": "Noche - Lunes"
+  },
+  {
+    "id": "evt_1738102200000_klm789",
+    "type": "INCOME",
+    "at": "2026-01-28T09:30:00.000Z",
+    "amount": 22000,
+    "incomeType": "UBER",
+    "note": "Madrugada - Martes"
+  },
+  {
+    "id": "evt_1738132200000_nop012",
+    "type": "INCOME",
+    "at": "2026-01-28T21:30:00.000Z",
+    "amount": 28000,
+    "incomeType": "UBER",
+    "note": "Noche - Martes"
+  },
+  {
+    "id": "evt_1737961200000_qrs345",
     "type": "PAUSE",
-    "pauseStartAt": "2024-01-26T16:00:00.000Z",
-    "pauseEndAt": "2024-01-26T16:45:00.000Z",
+    "pauseStartAt": "2026-01-26T16:00:00.000Z",
+    "pauseEndAt": "2026-01-26T16:45:00.000Z",
     "pauseReason": "FOOD"
   }
 ]

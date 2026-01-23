@@ -336,7 +336,4 @@ export async function resetData(): Promise<void> {
   }
 }
 
-// Inicializar: recargar datos en el cliente
-if (typeof window !== "undefined") {
-  reloadData().catch(console.error);
-}
+// No inicializar automáticamente aquí - se hace en los componentes

@@ -44,8 +44,15 @@ export default function HomePage() {
 
   // Cargar estado real después del montaje y marcar como montado
   useEffect(() => {
-    setState(getState());
-    setMounted(true);
+    const loadData = async () => {
+      if (typeof window !== "undefined") {
+        const { reloadData } = await import("@/lib/data");
+        await reloadData();
+      }
+      setState(getState());
+      setMounted(true);
+    };
+    loadData();
   }, []);
 
   // Eventos de hoy (máximo 6)

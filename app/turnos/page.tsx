@@ -14,7 +14,14 @@ export default function TurnosPage() {
   const todayDow = getDayOfWeek(today);
 
   useEffect(() => {
-    setState(getState());
+    const loadData = async () => {
+      if (typeof window !== "undefined") {
+        const { reloadData } = await import("@/lib/data");
+        await reloadData();
+      }
+      setState(getState());
+    };
+    loadData();
   }, []);
 
   const getBlockStatus = (dayOfWeek: number, block: PlanBlock) => {

@@ -19,13 +19,20 @@ export default function SemanaPage() {
   const [weeklyGoalValue, setWeeklyGoalValue] = useState("");
 
   useEffect(() => {
-    const currentState = getState();
-    setState(currentState);
-    setWeeklyGoalValue((currentState.settings.weeklyGoal || 400000).toString());
-    // Inicializar weekStart solo en el cliente
-    if (weekStart === null) {
-      setWeekStart(startOfWeek(getArgentinaDate()));
-    }
+    const loadData = async () => {
+      if (typeof window !== "undefined") {
+        const { reloadData } = await import("@/lib/data");
+        await reloadData();
+      }
+      const currentState = getState();
+      setState(currentState);
+      setWeeklyGoalValue((currentState.settings.weeklyGoal || 400000).toString());
+      // Inicializar weekStart solo en el cliente
+      if (weekStart === null) {
+        setWeekStart(startOfWeek(getArgentinaDate()));
+      }
+    };
+    loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
