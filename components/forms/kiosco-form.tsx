@@ -82,7 +82,6 @@ export function KioscoForm({
       }
 
       reset();
-      alert("Evento guardado. Los cambios se guardarán en Git.");
       onSuccess();
       onOpenChange(false);
     } catch (error) {

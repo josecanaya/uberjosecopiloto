@@ -122,7 +122,6 @@ export function FuelForm({
       reset();
       onSuccess();
       onOpenChange(false);
-      alert("Evento guardado. Los cambios se guardarán en Git.");
     } catch (error) {
       console.error(error);
       alert("Error al guardar registro de nafta");

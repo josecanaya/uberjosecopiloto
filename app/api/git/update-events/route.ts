@@ -10,8 +10,9 @@ const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
 export async function POST(request: NextRequest) {
   try {
     if (!GITHUB_TOKEN) {
+      console.error("GITHUB_TOKEN no configurado en variables de entorno");
       return NextResponse.json(
-        { error: "GITHUB_TOKEN no configurado" },
+        { error: "GITHUB_TOKEN no configurado. Configura la variable de entorno en Vercel." },
         { status: 500 }
       );
     }

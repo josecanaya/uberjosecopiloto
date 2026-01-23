@@ -106,12 +106,19 @@ async function updateSettingsInGit(settings: AppState["settings"]): Promise<void
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || "Error al actualizar settings");
+      const errorData = await response.json().catch(() => ({ error: "Error desconocido" }));
+      const errorMessage = errorData.error || `Error ${response.status}: ${response.statusText}`;
+      console.error("Error response:", errorData);
+      throw new Error(errorMessage);
     }
 
-    // Recargar datos después de actualizar
-    await reloadData();
+    const result = await response.json();
+    console.log("Settings guardados en Git:", result);
+
+    // Recargar datos después de actualizar (con delay para que GitHub procese)
+    setTimeout(async () => {
+      await reloadData();
+    }, 1000);
   } catch (error) {
     console.error("Error al actualizar settings en Git:", error);
     throw error;
@@ -130,12 +137,19 @@ async function updateEventsInGit(events: Event[]): Promise<void> {
     });
 
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || "Error al actualizar events");
+      const errorData = await response.json().catch(() => ({ error: "Error desconocido" }));
+      const errorMessage = errorData.error || `Error ${response.status}: ${response.statusText}`;
+      console.error("Error response:", errorData);
+      throw new Error(errorMessage);
     }
 
-    // Recargar datos después de actualizar
-    await reloadData();
+    const result = await response.json();
+    console.log("Events guardados en Git:", result);
+
+    // Recargar datos después de actualizar (con delay para que GitHub procese)
+    setTimeout(async () => {
+      await reloadData();
+    }, 1000);
   } catch (error) {
     console.error("Error al actualizar events en Git:", error);
     throw error;
