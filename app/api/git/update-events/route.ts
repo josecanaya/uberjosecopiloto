@@ -2,10 +2,11 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
-const GITHUB_REPO_OWNER = process.env.GITHUB_REPO_OWNER || "josecanaya";
-const GITHUB_REPO_NAME = process.env.GITHUB_REPO_NAME || "uberjosecopiloto";
-const GITHUB_BRANCH = process.env.GITHUB_BRANCH || "main";
+// Buscar variables de entorno con diferentes nombres posibles
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.TOKEN_DE_GITHUB;
+const GITHUB_REPO_OWNER = process.env.GITHUB_REPO_OWNER || process.env.PROPIETARIO_DEL_REPOSITOR_DE_GITHUB || "josecanaya";
+const GITHUB_REPO_NAME = process.env.GITHUB_REPO_NAME || process.env.NOMBRE_DEL_REPOSITOR_DE_GITHUB || "uberjosecopiloto";
+const GITHUB_BRANCH = process.env.GITHUB_BRANCH || process.env.RAMA_DE_GITHUB || "main";
 
 export async function POST(request: NextRequest) {
   try {
