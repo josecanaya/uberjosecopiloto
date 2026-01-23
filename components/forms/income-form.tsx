@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { addEvent, updateEvent, type Event } from "@/lib/storage";
+import { addEvent, updateEvent, type Event } from "@/lib/data";
 import { getArgentinaDate } from "@/lib/utils";
 
 interface IncomeFormProps {

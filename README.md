@@ -2,29 +2,29 @@
 
 Aplicación web **100% frontend** para registrar eventos (ingresos, nafta, kiosco, pausas) y visualizar dashboards por día/semana para conductores Uber.
 
-**✨ Característica principal**: Todo se guarda localmente en el navegador (localStorage). No requiere backend ni base de datos. Funciona completamente offline.
+**✨ Característica principal**: Los datos se leen desde archivos JSON en el repositorio Git (`/data/settings.json` y `/data/events.json`). Edita los archivos en GitHub y Vercel redeployará automáticamente.
 
 ## 🚀 Stack Tecnológico
 
 - **Next.js 14** (App Router) + TypeScript
 - **Tailwind CSS** + **shadcn/ui** para UI
-- **localStorage** para persistencia (con versionado y migración)
+- **Archivos JSON en Git** para persistencia (solo lectura desde la UI)
 - **Deploy**: Vercel (sin backend, solo estático)
 
 ## 📋 Características
 
-- ✅ **100% Frontend**: Sin backend, sin base de datos, funciona offline
+- ✅ **100% Frontend**: Sin backend, sin base de datos
+- ✅ **Datos desde Git**: Edita JSONs en GitHub, Vercel redeploya automáticamente
 - ✅ **Mobile-first design perfecto** (360-430px optimizado)
 - ✅ **UX estilo "Grows"** con botones grandes tipo banco
-- ✅ Registro rápido de eventos (ingresos, nafta, kiosco, pausas)
+- ✅ Visualización de eventos (ingresos, nafta, kiosco, pausas)
 - ✅ Dashboard diario con métricas en tiempo real
 - ✅ Vista semanal con cards apiladas (sin tablas)
-- ✅ Historial de eventos con filtros y edición/borrado
-- ✅ Plan semanal configurable con bloques horarios
+- ✅ Historial de eventos con filtros
+- ✅ **Pantalla "Turnos"** con plan semanal visual día por día
+- ✅ Plan de hoy visible en la página principal
 - ✅ Cálculo automático de $/hora neto
 - ✅ Recomendaciones basadas en objetivos
-- ✅ **Export/Import de datos** (JSON)
-- ✅ **Botón "Cargar demo"** para testing
 - ✅ Timezone Argentina (Lunes-Domingo correcto)
 
 ## 🛠️ Setup Local
@@ -59,115 +59,119 @@ copiloto/
 ├── app/                    # Next.js App Router
 │   ├── historial/         # Página de historial
 │   ├── semana/            # Página semanal
+│   ├── turnos/            # Página de turnos (plan semanal)
 │   ├── layout.tsx         # Layout principal
 │   └── page.tsx           # Página principal (Hoy)
 ├── components/            # Componentes React
 │   ├── forms/            # Formularios modales
 │   ├── ui/               # Componentes shadcn/ui
 │   └── navigation.tsx    # Navegación móvil
+├── data/                 # Datos en JSON (Git)
+│   ├── settings.json     # Configuración (objetivos, bloques)
+│   └── events.json       # Eventos registrados
 ├── lib/                  # Utilidades
-│   ├── storage.ts        # Sistema de localStorage
+│   ├── data.ts           # Sistema de lectura desde JSON
+│   ├── storage.ts        # Tipos y interfaces (compatibilidad)
 │   ├── dates.ts          # Utilidades de fecha/timezone
 │   ├── calculations.ts   # Funciones de cálculo
 │   └── utils.ts          # Funciones helper
 └── README.md
 ```
 
-## 🗄️ Almacenamiento Local
+## 🗄️ Almacenamiento de Datos
 
-### Estructura de Datos (localStorage)
+### Estructura de Datos (JSON en Git)
 
-**Key**: `copiloto_uber_v1`
+Los datos se almacenan en dos archivos JSON en el repositorio:
 
-```typescript
+#### `/data/settings.json`
+
+```json
 {
-  version: 1,
-  settings: {
-    timezone: "America/Argentina/Buenos_Aires",
-    goalsByDow: {
-      0: 100000,  // Domingo
-      1: 65000,   // Lunes
-      2: 0,       // Martes (descanso)
-      3: 0,       // Miércoles (descanso)
-      4: 65000,   // Jueves
-      5: 70000,   // Viernes
-      6: 120000,  // Sábado
-    },
-    planBlocksByDow: {
-      1: [{start: "06:30", end: "09:00"}, ...],
-      // ... más días
-    }
+  "timezone": "America/Argentina/Buenos_Aires",
+  "goalsByDow": {
+    "0": 100000,  // Domingo
+    "1": 65000,   // Lunes
+    "2": 0,       // Martes (descanso)
+    "3": 0,       // Miércoles (descanso)
+    "4": 65000,   // Jueves
+    "5": 70000,   // Viernes
+    "6": 120000   // Sábado
   },
-  events: [
-    {
-      id: "evt_...",
-      type: "INCOME" | "EXPENSE_FUEL" | "EXPENSE_KIOSCO" | "PAUSE",
-      at?: string, // ISO string
-      amount?: number,
-      // ... campos específicos según tipo
-    }
-  ]
+  "planBlocksByDow": {
+    "1": [
+      {"start": "06:30", "end": "09:00"},
+      {"start": "14:00", "end": "16:30"},
+      {"start": "21:00", "end": "23:00"}
+    ],
+    // ... más días
+  },
+  "weeklyGoal": 400000
 }
 ```
 
-### Funciones de Storage
+#### `/data/events.json`
 
-- `getState()`: Obtener estado actual
-- `addEvent(event)`: Agregar evento
-- `updateEvent(id, updates)`: Actualizar evento
-- `deleteEvent(id)`: Eliminar evento
-- `updateDayGoal(dayOfWeek, goal)`: Actualizar objetivo del día
-- `exportData()`: Exportar a JSON
-- `importData(json, merge)`: Importar desde JSON
-- `resetData()`: Resetear todos los datos
+```json
+[
+  {
+    "id": "evt_...",
+    "type": "INCOME" | "EXPENSE_FUEL" | "EXPENSE_KIOSCO" | "PAUSE",
+    "at": "2024-01-22T10:00:00.000Z",
+    "amount": 15000,
+    "incomeType": "UBER",
+    "note": "..."
+  }
+]
+```
+
+### Cómo Editar los Datos
+
+1. **Edita los archivos JSON en GitHub**:
+   - Ve a tu repositorio en GitHub
+   - Navega a `/data/settings.json` o `/data/events.json`
+   - Haz click en el ícono de lápiz (Edit)
+   - Edita el contenido
+   - Haz commit de los cambios
+
+2. **Vercel redeployará automáticamente**:
+   - Si tienes un webhook configurado, Vercel detectará el push
+   - O puedes hacer un redeploy manual desde el dashboard de Vercel
+
+3. **Los cambios se reflejarán en la app**:
+   - Después del redeploy, la app mostrará los nuevos datos
 
 ## 🎯 Uso de la Aplicación
 
 ### Página Principal (Hoy)
 
+- **Plan de Hoy**: Chips con horarios planificados (pasado/actual/futuro)
 - **Acciones Rápidas**: Grid 2x2 de botones grandes (Ingreso, Nafta, Kiosco, Pausa)
 - **Totales de Hoy**: Cards con bruto, gastos, neto, progreso
-- **Movimientos de Hoy**: Grid de mini-cards editables (máx 6)
-- **Bloques de Hoy**: Chips con horarios planificados
-- **Export/Import**: Botones en el header
+- **Movimientos de Hoy**: Grid de mini-cards (máx 6)
+- **Información**: Card explicando que los datos vienen de Git
 
 ### Historial
 
 - Filtrar eventos por fecha y tipo
-- Editar o eliminar eventos
-- Cerrar pausas activas
+- Visualización de eventos en cards
 - Cards individuales por evento
 
 ### Semana
 
 - Navegación semana anterior/siguiente
+- Objetivo semanal editable (solo visual, no persiste)
 - Cards apiladas por día (Lunes-Domingo)
+- Botón "Ver Días" con gráfico de barras y detalles
 - Card "Total Semana" destacada
-- Empty state cuando no hay datos
 
-## 📊 Export/Import de Datos
+### Turnos
 
-### Exportar
-
-1. Click en botón "Exportar" (icono descarga) en el header
-2. Se descarga un archivo JSON con todos tus datos
-3. Guarda este archivo como backup
-
-### Importar
-
-1. Click en botón "Importar" (icono subida) en el header
-2. Selecciona el archivo JSON
-3. Elige:
-   - **Combinar**: Agrega eventos a los existentes
-   - **Reemplazar**: Reemplaza todos los datos
-
-### Reset
-
-En modo desarrollo, hay un botón "Resetear Todos los Datos" que limpia localStorage.
-
-## 🧪 Datos de Ejemplo
-
-En modo desarrollo, hay un botón "Cargar Datos Demo" que agrega eventos de ejemplo distribuidos en la semana actual para probar la aplicación.
+- Vista completa del plan semanal día por día
+- Cada día muestra chips con horarios planificados
+- Resalta el día actual
+- Muestra objetivos diarios
+- Días de descanso claramente marcados
 
 ## 🚀 Deploy a Vercel
 
@@ -189,9 +193,17 @@ Vercel detectará automáticamente Next.js y desplegará. El build es:
 next build
 ```
 
-### 4. Listo
+### 4. Configurar Webhook (Opcional)
 
-La app funcionará completamente en el navegador del usuario. Cada usuario tiene su propio localStorage.
+Para que Vercel redeploye automáticamente cuando edites los JSONs en GitHub:
+
+1. Ve a tu proyecto en Vercel
+2. Settings → Git → Deploy Hooks
+3. O simplemente haz push a la rama principal y Vercel redeployará
+
+### 5. Listo
+
+La app funcionará completamente en el navegador. Los datos se leen desde los archivos JSON en el repositorio.
 
 ## 📝 Scripts Disponibles
 
@@ -206,7 +218,7 @@ npm start                # Iniciar servidor de producción
 
 ## 🔧 Configuración del Plan Semanal
 
-El plan semanal está en `lib/storage.ts` en el estado inicial (`defaultState`). Puedes editarlo directamente o desde la UI (objetivos editables).
+El plan semanal está en `/data/settings.json`. Edita este archivo en GitHub para actualizar los horarios.
 
 Por defecto:
 - **Lunes, Jueves, Viernes**: 06:30-09:00, 14:00-16:30, 21:00-23:00
@@ -214,30 +226,31 @@ Por defecto:
 - **Domingo**: 04:00-08:00, 18:00-22:00
 - **Martes, Miércoles**: Descanso (sin bloques)
 
-## ⚠️ Limitaciones
+## ⚠️ Limitaciones Actuales
 
-- **localStorage tiene límite**: ~5-10MB dependiendo del navegador
-- **Sin sincronización**: Los datos solo están en el navegador del usuario
-- **Sin backup automático**: Usa Export para hacer backups manuales
-- **Sin multi-dispositivo**: Cada navegador/dispositivo tiene sus propios datos
+- **Solo lectura desde la UI**: Los formularios no guardan datos (muestran warnings en consola)
+- **Edición manual requerida**: Debes editar los JSONs en GitHub para actualizar datos
+- **Redeploy necesario**: Después de editar JSONs, Vercel debe redeployar para ver cambios
 
 ## 💡 Tips
 
-1. **Haz backups regulares**: Usa Export para guardar tus datos
-2. **Si cambias de navegador**: Exporta antes y luego Importa en el nuevo
-3. **Si limpias el navegador**: Los datos se pierden, por eso es importante Exportar
+1. **Edita desde GitHub**: Usa la interfaz web de GitHub para editar los JSONs fácilmente
+2. **Formato JSON válido**: Asegúrate de que el JSON sea válido antes de hacer commit
+3. **Backup**: Haz commit de tus cambios regularmente para tener historial
+4. **Redeploy manual**: Si el webhook no funciona, haz redeploy manual desde Vercel
 
 ## 🐛 Troubleshooting
 
-### Los datos desaparecieron
+### Los datos no se actualizan
 
-- Verifica que no hayas limpiado el localStorage del navegador
-- Si tienes un backup (JSON), usa Import para restaurarlo
+- Verifica que hayas hecho commit de los cambios en GitHub
+- Verifica que Vercel haya redeployado (revisa el dashboard)
+- Limpia la caché del navegador (Ctrl+Shift+R o Cmd+Shift+R)
 
-### Error al importar
+### Error al cargar la app
 
-- Verifica que el archivo JSON sea válido
-- Asegúrate de que el formato coincida con el schema
+- Verifica que los archivos JSON sean válidos (formato correcto)
+- Revisa la consola del navegador para ver errores
 
 ### La semana muestra datos incorrectos
 
@@ -246,4 +259,4 @@ Por defecto:
 
 ---
 
-Desarrollado con ❤️ para conductores Uber - 100% local, 100% tuyo
+Desarrollado con ❤️ para conductores Uber - Datos desde Git, control total

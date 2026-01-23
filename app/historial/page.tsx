@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Pencil, Trash2, DollarSign, Fuel, Clock, ShoppingBag, History } from "lucide-react";
 import { formatTime, formatDuration, getArgentinaDate, sameLocalDay } from "@/lib/utils";
-import { getState, deleteEvent, updateEvent, type Event } from "@/lib/storage";
+import { getState, deleteEvent, updateEvent, type Event } from "@/lib/data";
 import { IncomeForm } from "@/components/forms/income-form";
 import { FuelForm } from "@/components/forms/fuel-form";
 import { KioscoForm } from "@/components/forms/kiosco-form";

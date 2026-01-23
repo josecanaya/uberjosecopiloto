@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { addEvent, updateEvent, type Event } from "@/lib/storage";
+import { addEvent, updateEvent, type Event } from "@/lib/data";
 import { getArgentinaDate } from "@/lib/utils";
 
 interface FuelFormProps {

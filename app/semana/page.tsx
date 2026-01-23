@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Calendar, BarChart3 } from "lucide-react";
 import { formatCurrency, startOfWeek, getArgentinaDate, formatDate, getDayOfWeek } from "@/lib/utils";
-import { getState, updateWeeklyGoal, defaultState } from "@/lib/storage";
+import { getState, updateWeeklyGoal, defaultState } from "@/lib/data";
 import { calculateWeekStats } from "@/lib/calculations";
 import { Target, TrendingUp, TrendingDown } from "lucide-react";
 

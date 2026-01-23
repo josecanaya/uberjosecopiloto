@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Calendar, History, Home } from "lucide-react";
+import { Calendar, History, Home, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Navigation() {
@@ -12,6 +12,7 @@ export function Navigation() {
     { href: "/", label: "Hoy", icon: Home },
     { href: "/historial", label: "Historial", icon: History },
     { href: "/semana", label: "Semana", icon: Calendar },
+    { href: "/turnos", label: "Turnos", icon: Clock },
   ];
 
   return (

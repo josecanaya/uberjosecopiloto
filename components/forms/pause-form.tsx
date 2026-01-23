@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { addEvent, updateEvent, getState, type Event } from "@/lib/storage";
+import { addEvent, updateEvent, getState, type Event } from "@/lib/data";
 
 interface PauseFormProps {
   open: boolean;

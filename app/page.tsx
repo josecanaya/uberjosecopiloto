@@ -3,15 +3,14 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, TrendingUp, TrendingDown, Target, Pencil, Trash2, DollarSign, Fuel, ShoppingBag, Clock, Download, Upload, RotateCcw } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, Target, Pencil, Trash2, DollarSign, Fuel, ShoppingBag, Clock, Download, Upload } from "lucide-react";
 import { IncomeForm } from "@/components/forms/income-form";
 import { FuelForm } from "@/components/forms/fuel-form";
 import { KioscoForm } from "@/components/forms/kiosco-form";
 import { PauseForm } from "@/components/forms/pause-form";
 import { formatCurrency, formatTime, getArgentinaDate, getDayOfWeek } from "@/lib/utils";
-import { getState, updateDayGoal, deleteEvent, importData, resetData, defaultState, updateWeeklyGoal, type Event } from "@/lib/storage";
+import { getState, updateDayGoal, deleteEvent, importData, resetData, defaultState, updateWeeklyGoal, type Event } from "@/lib/data";
 import { calculateDayStats } from "@/lib/calculations";
-import { loadDemoData } from "@/lib/demo-data";
 import { ManualAdjustmentForm } from "@/components/forms/manual-adjustment-form";
 
 export default function HomePage() {
@@ -156,17 +155,6 @@ export default function HomePage() {
     alert("Datos reseteados");
   };
 
-  const handleLoadDemo = () => {
-    if (!confirm("¿Cargar datos de ejemplo? Esto agregará eventos a la semana actual.")) return;
-    try {
-      const count = loadDemoData();
-      refreshState();
-      alert(`${count} eventos de ejemplo agregados`);
-    } catch (error) {
-      console.error(error);
-      alert("Error al cargar datos de ejemplo");
-    }
-  };
 
   const getEventIcon = (type: string) => {
     if (type === "INCOME") return <DollarSign className="h-4 w-4 text-green-600" />;
@@ -244,6 +232,36 @@ export default function HomePage() {
           </Button>
         </div>
       </div>
+
+      {/* Plan de Hoy */}
+      {planBlocks.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Plan de Hoy</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-wrap gap-2">
+              {planBlocks.map((block, index) => {
+                const status = getBlockStatus(block.start, block.end);
+                return (
+                  <div
+                    key={index}
+                    className={`px-3 py-1.5 rounded-full text-xs font-medium border ${
+                      status === "current"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : status === "past"
+                        ? "bg-muted text-muted-foreground border-muted"
+                        : "bg-background text-foreground border-border"
+                    }`}
+                  >
+                    {block.start} - {block.end}
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Acciones Rápidas */}
       <Card>
@@ -460,42 +478,6 @@ export default function HomePage() {
         </CardContent>
       </Card>
 
-      {/* Bloques de hoy */}
-      {planBlocks.length > 0 && (
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Bloques de Hoy</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {planBlocks.map((block, index) => {
-                const status = getBlockStatus(block.start, block.end);
-                return (
-                  <div
-                    key={index}
-                    className={`flex items-center justify-between p-3 rounded-md border ${
-                      status === "current"
-                        ? "bg-primary/10 border-primary"
-                        : status === "past"
-                        ? "bg-muted"
-                        : ""
-                    }`}
-                  >
-                    <div className="font-medium text-sm">
-                      {block.start} - {block.end}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {status === "current" && "En curso"}
-                      {status === "past" && "Pasado"}
-                      {status === "future" && "Próximo"}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Últimos Movimientos */}
       <Card>
@@ -567,39 +549,23 @@ export default function HomePage() {
         </CardContent>
       </Card>
 
-      {/* Configuración y Datos de Ejemplo */}
+      {/* Información sobre datos */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-base">Datos de Ejemplo</CardTitle>
+          <CardTitle className="text-base">Datos desde Git</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="text-xs text-muted-foreground">
             <p className="mb-2">
-              Los datos se guardan en tu navegador (localStorage). Cada vez que abres la app, se cargan automáticamente.
+              Los datos se leen desde los archivos JSON en el repositorio Git.
             </p>
             <p>
-              Puedes usar &quot;Cargar Datos Demo&quot; para probar la app con datos de ejemplo.
+              Para actualizar los datos, edita los archivos <code className="bg-muted px-1 rounded">/data/settings.json</code> y <code className="bg-muted px-1 rounded">/data/events.json</code> en GitHub.
+            </p>
+            <p className="mt-2">
+              Después de editar, Vercel redeployará automáticamente la app con los nuevos datos.
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleLoadDemo}
-            className="w-full"
-          >
-            Cargar Datos Demo
-          </Button>
-          {process.env.NODE_ENV !== "production" && (
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={handleReset}
-              className="w-full"
-            >
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Resetear Todos los Datos
-            </Button>
-          )}
         </CardContent>
       </Card>
 
