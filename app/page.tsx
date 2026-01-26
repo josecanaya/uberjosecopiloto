@@ -346,7 +346,7 @@ export default function HomePage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {/* Objetivo Neto */}
+          {/* Objetivo Bruto */}
           {editingGoal ? (
             <div className="flex gap-2">
               <input
@@ -355,7 +355,7 @@ export default function HomePage() {
                 onChange={(e) => setGoalValue(e.target.value)}
                 className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
                 autoFocus
-                placeholder="Objetivo neto (después de gastos)"
+                placeholder="Objetivo bruto del día"
               />
               <Button size="sm" onClick={handleGoalSave} className="h-9">
                 ✓
