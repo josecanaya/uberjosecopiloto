@@ -14,14 +14,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Pencil, Trash2, DollarSign, Fuel, Clock, ShoppingBag, History } from "lucide-react";
 import { formatTime, formatDuration, getArgentinaDate, sameLocalDay } from "@/lib/utils";
-import { getState, deleteEvent, updateEvent, type Event } from "@/lib/data";
+import { getState, deleteEventById, updateEventById, defaultState } from "@/lib/apiAdapter";
+import type { Event } from "@/lib/storage";
 import { IncomeForm } from "@/components/forms/income-form";
 import { FuelForm } from "@/components/forms/fuel-form";
 import { KioscoForm } from "@/components/forms/kiosco-form";
 import { PauseForm } from "@/components/forms/pause-form";
 
 export default function HistorialPage() {
-  const [state, setState] = useState(getState());
+  const [state, setState] = useState(defaultState);
   const [date, setDate] = useState(getArgentinaDate().toISOString().split("T")[0]);
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -33,10 +34,9 @@ export default function HistorialPage() {
 
   const refreshState = async () => {
     if (typeof window !== "undefined") {
-      const { reloadData } = await import("@/lib/data");
-      await reloadData();
+      const state = await getState();
+      setState(state);
     }
-    setState(getState());
   };
 
   useEffect(() => {
@@ -81,9 +81,8 @@ export default function HistorialPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("¿Eliminar este movimiento?")) return;
     try {
-      await deleteEvent(id);
+      await deleteEventById(id);
       await refreshState();
-      alert("Evento eliminado. Los cambios se guardarán en Git.");
     } catch (error) {
       console.error(error);
       alert("Error al eliminar evento. Verifica la consola.");
@@ -92,11 +91,10 @@ export default function HistorialPage() {
 
   const handleClosePause = async (id: string) => {
     try {
-      await updateEvent(id, {
+      await updateEventById(id, {
         pauseEndAt: new Date().toISOString(),
       });
       await refreshState();
-      alert("Pausa cerrada. Los cambios se guardarán en Git.");
     } catch (error) {
       console.error(error);
       alert("Error al cerrar pausa. Verifica la consola.");

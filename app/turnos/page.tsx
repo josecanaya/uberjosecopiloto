@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getState, defaultState } from "@/lib/data";
+import { getState, defaultState } from "@/lib/apiAdapter";
 import { getArgentinaDate, getDayOfWeek, formatCurrency } from "@/lib/utils";
-import type { PlanBlock } from "@/lib/data";
+import type { PlanBlock } from "@/lib/storage";
 
 const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
@@ -16,10 +16,9 @@ export default function TurnosPage() {
   useEffect(() => {
     const loadData = async () => {
       if (typeof window !== "undefined") {
-        const { reloadData } = await import("@/lib/data");
-        await reloadData();
+        const state = await getState();
+        setState(state);
       }
-      setState(getState());
     };
     loadData();
   }, []);

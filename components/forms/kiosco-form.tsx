@@ -13,7 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { addEvent, updateEvent, type Event } from "@/lib/data";
+import { addEvent, updateEventById } from "@/lib/apiAdapter";
+import type { Event } from "@/lib/storage";
 import { getArgentinaDate } from "@/lib/utils";
 
 interface KioscoFormProps {
@@ -76,7 +77,7 @@ export function KioscoForm({
       };
 
       if (editingEvent) {
-        await updateEvent(editingEvent.id, eventData);
+        await updateEventById(editingEvent.id, eventData);
       } else {
         await addEvent(eventData);
       }

@@ -9,7 +9,8 @@ import { FuelForm } from "@/components/forms/fuel-form";
 import { KioscoForm } from "@/components/forms/kiosco-form";
 import { PauseForm } from "@/components/forms/pause-form";
 import { formatCurrency, formatTime, getArgentinaDate, getDayOfWeek } from "@/lib/utils";
-import { getState, updateDayGoal, deleteEvent, importData, resetData, defaultState, updateWeeklyGoal, type Event } from "@/lib/data";
+import { getState, updateDayGoal, deleteEventById, defaultState, updateWeeklyGoal, addEvent, updateEventById } from "@/lib/apiAdapter";
+import type { Event as OldEvent } from "@/lib/storage";
 import { calculateDayStats } from "@/lib/calculations";
 import { ManualAdjustmentForm } from "@/components/forms/manual-adjustment-form";
 
@@ -23,8 +24,8 @@ export default function HomePage() {
   const [pauseOpen, setPauseOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState(false);
   const [goalValue, setGoalValue] = useState("");
-  const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  const [activePause, setActivePause] = useState<Event | null>(null);
+  const [editingEvent, setEditingEvent] = useState<OldEvent | null>(null);
+  const [activePause, setActivePause] = useState<OldEvent | null>(null);
   const [manualAdjustmentOpen, setManualAdjustmentOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -46,10 +47,9 @@ export default function HomePage() {
   useEffect(() => {
     const loadData = async () => {
       if (typeof window !== "undefined") {
-        const { reloadData } = await import("@/lib/data");
-        await reloadData();
+        const state = await getState();
+        setState(state);
       }
-      setState(getState());
       setMounted(true);
     };
     loadData();
@@ -85,12 +85,11 @@ export default function HomePage() {
   }, [goal]);
 
   const refreshState = async () => {
-    // Recargar datos desde Git
+    // Recargar datos desde Supabase
     if (typeof window !== "undefined") {
-      const { reloadData } = await import("@/lib/data");
-      await reloadData();
+      const state = await getState();
+      setState(state);
     }
-    setState(getState());
   };
 
   const handleSuccess = async () => {
@@ -101,16 +100,15 @@ export default function HomePage() {
   const handleDelete = async (id: string) => {
     if (!confirm("¿Eliminar este movimiento?")) return;
     try {
-      await deleteEvent(id);
+      await deleteEventById(id);
       await refreshState();
-      alert("Evento eliminado. Los cambios se guardarán en Git.");
     } catch (error) {
       console.error(error);
       alert("Error al eliminar evento. Verifica la consola.");
     }
   };
 
-  const handleEdit = (event: Event) => {
+  const handleEdit = (event: OldEvent) => {
     setEditingEvent(event);
     if (event.type === "INCOME") {
       setIncomeOpen(true);
@@ -126,57 +124,23 @@ export default function HomePage() {
       await updateDayGoal(dayOfWeek, parseFloat(goalValue));
       await refreshState();
       setEditingGoal(false);
-      alert("Objetivo actualizado. Los cambios se guardarán en Git.");
     } catch (error) {
       console.error(error);
       alert("Error al actualizar objetivo. Verifica la consola.");
     }
   };
 
+  // Export/Import/Reset no implementados con Supabase por ahora
   const handleExport = () => {
-    const data = JSON.stringify(getState(), null, 2);
-    const blob = new Blob([data], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `copiloto_uber_${new Date().toISOString().split("T")[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    alert("Export no disponible con Supabase. Los datos están en la base de datos.");
   };
 
   const handleImport = () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "application/json";
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        try {
-          const json = event.target?.result as string;
-          const merge = confirm("¿Deseas combinar con los datos existentes? (Cancelar = reemplazar todo)");
-          
-          importData(json, merge);
-          refreshState();
-          alert("Datos importados correctamente");
-        } catch (error) {
-          alert("Error al importar datos: " + (error as Error).message);
-        }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
+    alert("Import no disponible con Supabase. Los datos están en la base de datos.");
   };
 
   const handleReset = () => {
-    if (!confirm("¿Estás seguro? Esto eliminará TODOS los datos.")) return;
-    if (!confirm("Esta acción NO se puede deshacer. ¿Continuar?")) return;
-    
-    resetData();
-    refreshState();
-    alert("Datos reseteados");
+    alert("Reset no disponible con Supabase. Los datos están en la base de datos.");
   };
 
 
@@ -188,7 +152,7 @@ export default function HomePage() {
     return null;
   };
 
-  const getEventLabel = (event: Event) => {
+  const getEventLabel = (event: OldEvent) => {
     if (event.type === "INCOME") {
       return `Ingreso ${formatCurrency(event.amount || 0)}`;
     }

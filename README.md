@@ -1,27 +1,25 @@
 # Copiloto Uber
 
-Aplicación web **100% frontend** para registrar eventos (ingresos, nafta, kiosco, pausas) y visualizar dashboards por día/semana para conductores Uber.
+Aplicación web para registrar eventos (ingresos, nafta, kiosco, pausas) y visualizar dashboards por día/semana para conductores Uber.
 
-**✨ Característica principal**: Los datos se leen y guardan desde archivos JSON en el repositorio Git (`/data/settings.json` y `/data/events.json`). Puedes editar desde la UI y los cambios se guardan automáticamente en Git mediante GitHub API.
+**✨ Característica principal**: Backend mínimo con Supabase (Postgres) para persistencia de datos. App personal (no multiusuario).
 
 ## 🚀 Stack Tecnológico
 
 - **Next.js 14** (App Router) + TypeScript
+- **Supabase** (Postgres) para persistencia
 - **Tailwind CSS** + **shadcn/ui** para UI
-- **Archivos JSON en Git** para persistencia
-- **GitHub API** para guardar cambios desde la UI
-- **Deploy**: Vercel (con API routes para GitHub API)
+- **Deploy**: Vercel
 
 ## 📋 Características
 
-- ✅ **100% Frontend**: Sin backend propio, usa GitHub API
-- ✅ **Datos desde Git**: Edita desde la UI o desde GitHub
-- ✅ **Guardado automático**: Los cambios desde la UI se guardan en Git automáticamente
+- ✅ **Backend mínimo**: API routes con Supabase
+- ✅ **Seguridad simple**: Protección con `x-admin-key` header
 - ✅ **Mobile-first design perfecto** (360-430px optimizado)
 - ✅ **UX estilo "Grows"** con botones grandes tipo banco
 - ✅ Registro de eventos (ingresos, nafta, kiosco, pausas)
 - ✅ Dashboard diario con métricas en tiempo real
-- ✅ Vista semanal con cards apiladas (sin tablas)
+- ✅ Vista semanal con cards apiladas
 - ✅ Historial de eventos con filtros
 - ✅ **Pantalla "Turnos"** con plan semanal visual día por día
 - ✅ Plan de hoy visible en la página principal
@@ -34,40 +32,58 @@ Aplicación web **100% frontend** para registrar eventos (ingresos, nafta, kiosc
 ### Prerrequisitos
 
 - Node.js 18+ 
-- npm o yarn
+- npm o pnpm
+- Cuenta de Supabase (gratis)
 
-**NO necesitas PostgreSQL ni ninguna base de datos.**
+### 1. Crear proyecto en Supabase
 
-### 1. Instalar dependencias
+1. Ve a [Supabase](https://supabase.com) y crea un proyecto
+2. Ve a Settings → API
+3. Copia:
+   - **Project URL** (SUPABASE_URL)
+   - **service_role key** (SUPABASE_SERVICE_ROLE_KEY) - ⚠️ **NO uses anon key**
+
+### 2. Ejecutar schema SQL
+
+1. Ve a SQL Editor en Supabase
+2. Copia y ejecuta el contenido de `supabase-schema.sql`
+3. Esto creará las tablas `settings` y `events`
+
+### 3. Instalar dependencias
 
 ```bash
 npm install
+# o
+pnpm install
 ```
 
-### 2. Configurar variables de entorno
+### 4. Configurar variables de entorno
 
 Crea un archivo `.env.local`:
 
 ```env
-GITHUB_TOKEN=tu_token_de_github
-GITHUB_REPO_OWNER=josecanaya
-GITHUB_REPO_NAME=uberjosecopiloto
-GITHUB_BRANCH=main
+# Supabase (server only)
+SUPABASE_URL=tu_url_de_supabase
+SUPABASE_SERVICE_ROLE_KEY=tu_service_role_key
+
+# Admin key para proteger endpoints (server only)
+ADMIN_KEY=tu_clave_secreta_aqui
+
+# Admin key para el frontend (pública)
+NEXT_PUBLIC_ADMIN_KEY=tu_clave_secreta_aqui
 ```
 
-**Cómo obtener GITHUB_TOKEN:**
+**⚠️ IMPORTANTE:**
+- `ADMIN_KEY` y `NEXT_PUBLIC_ADMIN_KEY` deben ser la misma clave
+- Usa una clave fuerte y aleatoria (puedes generar con: `openssl rand -hex 32`)
+- `NEXT_PUBLIC_ADMIN_KEY` es pública (se expone en el bundle), pero es suficiente para una app personal
 
-1. Ve a GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
-2. Click en "Generate new token (classic)"
-3. Dale un nombre (ej: "Copiloto Uber")
-4. Selecciona el scope `repo` (acceso completo a repositorios)
-5. Genera el token y cópialo
-6. Pégalo en `.env.local`
-
-### 3. Ejecutar en desarrollo
+### 5. Ejecutar en desarrollo
 
 ```bash
 npm run dev
+# o
+pnpm dev
 ```
 
 Abrir [http://localhost:3000](http://localhost:3000)
@@ -76,153 +92,96 @@ Abrir [http://localhost:3000](http://localhost:3000)
 
 ```
 copiloto/
-├── app/                    # Next.js App Router
-│   ├── api/               # API routes
-│   │   └── git/           # Rutas para actualizar Git
-│   ├── historial/         # Página de historial
-│   ├── semana/            # Página semanal
-│   ├── turnos/            # Página de turnos (plan semanal)
-│   ├── layout.tsx         # Layout principal
-│   └── page.tsx           # Página principal (Hoy)
-├── components/            # Componentes React
-│   ├── forms/            # Formularios modales
-│   ├── ui/               # Componentes shadcn/ui
-│   └── navigation.tsx    # Navegación móvil
-├── data/                 # Datos en JSON (Git)
-│   ├── settings.json     # Configuración (objetivos, bloques)
-│   └── events.json       # Eventos registrados
-├── public/               # Archivos estáticos
-│   └── data/            # Copia de JSONs para fetch en runtime
-├── lib/                  # Utilidades
-│   ├── data.ts           # Sistema de lectura/escritura desde Git
-│   ├── storage.ts        # Tipos y interfaces
-│   ├── dates.ts          # Utilidades de fecha/timezone
-│   ├── calculations.ts   # Funciones de cálculo
-│   └── utils.ts          # Funciones helper
-└── README.md
+├── app/
+│   ├── api/                    # API routes
+│   │   ├── settings/          # GET/PUT /api/settings
+│   │   └── events/            # GET/POST /api/events
+│   │       └── [id]/          # PUT/DELETE /api/events/:id
+│   ├── historial/             # Página de historial
+│   ├── semana/                # Página semanal
+│   ├── turnos/                # Página de turnos
+│   └── page.tsx               # Página principal (Hoy)
+├── components/                # Componentes React
+│   ├── forms/                # Formularios modales
+│   └── ui/                   # Componentes shadcn/ui
+├── lib/
+│   ├── supabaseAdmin.ts      # Cliente Supabase (service_role)
+│   ├── api.ts                # Cliente API para frontend
+│   ├── apiAdapter.ts         # Adaptador entre tipos antiguos y nuevos
+│   ├── auth.ts               # Validación de admin key
+│   ├── types.ts              # Tipos compartidos
+│   ├── calculations.ts       # Funciones de cálculo
+│   ├── dates.ts              # Utilidades de fecha/timezone
+│   └── utils.ts              # Funciones helper
+└── supabase-schema.sql       # Schema SQL para Supabase
 ```
 
-## 🗄️ Almacenamiento de Datos
+## 🗄️ Schema de Base de Datos
 
-### Estructura de Datos (JSON en Git)
+### Tabla `settings`
 
-Los datos se almacenan en dos archivos JSON en el repositorio:
+Una sola fila con la configuración:
 
-#### `/data/settings.json`
-
-```json
-{
-  "timezone": "America/Argentina/Buenos_Aires",
-  "goalsByDow": {
-    "0": 100000,  // Domingo
-    "1": 65000,   // Lunes
-    "2": 0,       // Martes (descanso)
-    "3": 0,       // Miércoles (descanso)
-    "4": 65000,   // Jueves
-    "5": 70000,   // Viernes
-    "6": 120000   // Sábado
-  },
-  "planBlocksByDow": {
-    "1": [
-      {"start": "06:30", "end": "09:00"},
-      {"start": "14:00", "end": "16:30"},
-      {"start": "21:00", "end": "23:00"}
-    ],
-    // ... más días
-  },
-  "weeklyGoal": 400000
-}
+```sql
+- id: UUID
+- timezone: TEXT (default: 'America/Argentina/Buenos_Aires')
+- goals_by_dow: JSONB ({"0": 100000, "1": 65000, ...})
+- plan_blocks_by_dow: JSONB ({"1": [{"start": "06:30", "end": "09:00"}, ...], ...})
+- weekly_goal: INTEGER
+- created_at: TIMESTAMPTZ
+- updated_at: TIMESTAMPTZ
 ```
 
-#### `/data/events.json`
+### Tabla `events`
 
-```json
-[
-  {
-    "id": "evt_...",
-    "type": "INCOME" | "EXPENSE_FUEL" | "EXPENSE_KIOSCO" | "PAUSE",
-    "at": "2024-01-22T10:00:00.000Z",
-    "amount": 15000,
-    "incomeType": "UBER",
-    "note": "..."
-  }
-]
+Eventos registrados:
+
+```sql
+- id: UUID
+- type: TEXT ('INCOME' | 'EXPENSE_FUEL' | 'EXPENSE_KIOSCO' | 'PAUSE')
+- at: TIMESTAMPTZ (para INCOME y EXPENSE)
+- amount: INTEGER
+- note: TEXT
+- income_type: TEXT ('UBER' | 'TIP' | 'OTHER')
+- fuel_liters: NUMERIC
+- fuel_price_per_liter: NUMERIC
+- fuel_station: TEXT
+- pause_start_at: TIMESTAMPTZ
+- pause_end_at: TIMESTAMPTZ
+- pause_reason: TEXT ('SLEEP' | 'FOOD' | 'REST')
+- created_at: TIMESTAMPTZ
+- updated_at: TIMESTAMPTZ
 ```
 
-### Cómo Funciona el Guardado
+## 🔐 Seguridad
 
-1. **Desde la UI**: Cuando agregas/editas/eliminas un evento o cambias un objetivo:
-   - Se actualiza el estado local inmediatamente
-   - Se llama a la API route `/api/git/update-settings` o `/api/git/update-events`
-   - La API route usa GitHub API para hacer commit del cambio
-   - Vercel redeployará automáticamente (si tienes webhook configurado)
-
-2. **Desde GitHub**: Puedes editar los JSONs directamente en GitHub:
-   - Los cambios se reflejarán después del redeploy de Vercel
-
-## 🎯 Uso de la Aplicación
-
-### Página Principal (Hoy)
-
-- **Plan de Hoy**: Chips con horarios planificados (pasado/actual/futuro)
-- **Acciones Rápidas**: Grid 2x2 de botones grandes (Ingreso, Nafta, Kiosco, Pausa)
-- **Totales de Hoy**: Cards con bruto, gastos, neto, progreso
-- **Movimientos de Hoy**: Grid de mini-cards (máx 6)
-- **Información**: Card explicando que los datos vienen de Git
-
-### Historial
-
-- Filtrar eventos por fecha y tipo
-- Visualización de eventos en cards
-- Editar/eliminar eventos (se guardan en Git)
-
-### Semana
-
-- Navegación semana anterior/siguiente
-- Objetivo semanal editable (se guarda en Git)
-- Cards apiladas por día (Lunes-Domingo)
-- Botón "Ver Días" con gráfico de barras y detalles
-- Card "Total Semana" destacada
-
-### Turnos
-
-- Vista completa del plan semanal día por día
-- Cada día muestra chips con horarios planificados
-- Resalta el día actual
-- Muestra objetivos diarios
-- Días de descanso claramente marcados
+- **Protección simple**: Todos los endpoints requieren header `x-admin-key`
+- **Service Role**: Solo se usa en el backend (nunca en el frontend)
+- **Admin Key**: Misma clave en `ADMIN_KEY` (server) y `NEXT_PUBLIC_ADMIN_KEY` (client)
 
 ## 🚀 Deploy a Vercel
 
 ### 1. Preparar el proyecto
 
-Asegúrate de que el proyecto esté en un repositorio Git (GitHub, GitLab, etc.).
+Asegúrate de que el proyecto esté en un repositorio Git.
 
 ### 2. Crear proyecto en Vercel
 
 1. Ir a [Vercel](https://vercel.com)
 2. Importar el repositorio
 3. **Configurar variables de entorno**:
-   - `GITHUB_TOKEN`: Tu token de GitHub (con scope `repo`)
-   - `GITHUB_REPO_OWNER`: Tu usuario de GitHub (ej: `josecanaya`)
-   - `GITHUB_REPO_NAME`: Nombre del repo (ej: `uberjosecopiloto`)
-   - `GITHUB_BRANCH`: Rama (generalmente `main`)
+   - `SUPABASE_URL`: Tu URL de Supabase
+   - `SUPABASE_SERVICE_ROLE_KEY`: Tu service_role key
+   - `ADMIN_KEY`: Tu clave secreta
+   - `NEXT_PUBLIC_ADMIN_KEY`: La misma clave secreta
 
 ### 3. Deploy
 
 Vercel detectará automáticamente Next.js y desplegará.
 
-### 4. Configurar Webhook (Opcional)
+### 4. Listo
 
-Para que Vercel redeploye automáticamente cuando edites los JSONs en GitHub:
-
-1. Ve a tu proyecto en Vercel
-2. Settings → Git → Deploy Hooks
-3. O simplemente haz push a la rama principal y Vercel redeployará
-
-### 5. Listo
-
-La app funcionará completamente. Los cambios desde la UI se guardarán en Git automáticamente.
+La app funcionará completamente. Los datos se guardan en Supabase.
 
 ## 📝 Scripts Disponibles
 
@@ -235,49 +194,24 @@ npm run build            # Build de producción
 npm start                # Iniciar servidor de producción
 ```
 
-## 🔧 Configuración del Plan Semanal
-
-El plan semanal está en `/data/settings.json`. Puedes editarlo:
-- **Desde la UI**: Cambiando objetivos (se guarda automáticamente)
-- **Desde GitHub**: Editando el archivo directamente
-
-Por defecto:
-- **Lunes, Jueves, Viernes**: 06:30-09:00, 14:00-16:30, 21:00-23:00
-- **Sábado**: 04:00-08:00, 18:00-23:00
-- **Domingo**: 04:00-08:00, 18:00-22:00
-- **Martes, Miércoles**: Descanso (sin bloques)
-
-## ⚠️ Limitaciones
-
-- **GitHub Token requerido**: Necesitas configurar `GITHUB_TOKEN` para que funcione el guardado desde la UI
-- **Redeploy necesario**: Después de editar JSONs en GitHub, Vercel debe redeployar para ver cambios
-- **Rate limits**: GitHub API tiene límites de rate, pero para uso personal no debería ser problema
-
-## 💡 Tips
-
-1. **Guarda tu token seguro**: No compartas tu `GITHUB_TOKEN` públicamente
-2. **Edita desde la UI**: Es más fácil que editar JSONs manualmente
-3. **Backup automático**: Git guarda historial de todos los cambios
-4. **Redeploy manual**: Si el webhook no funciona, haz redeploy manual desde Vercel
-
 ## 🐛 Troubleshooting
 
-### Los cambios no se guardan
+### Error: "Unauthorized"
 
-- Verifica que `GITHUB_TOKEN` esté configurado correctamente en Vercel
-- Verifica que el token tenga el scope `repo`
+- Verifica que `NEXT_PUBLIC_ADMIN_KEY` esté configurado
+- Verifica que el header `x-admin-key` se esté enviando correctamente
+
+### Error: "SUPABASE_URL no está configurado"
+
+- Verifica que las variables de entorno estén configuradas en Vercel
+- Asegúrate de usar `SUPABASE_SERVICE_ROLE_KEY` (no anon key)
+
+### Los datos no se guardan
+
 - Revisa la consola del navegador para ver errores
-
-### Error al cargar la app
-
-- Verifica que los archivos JSON sean válidos (formato correcto)
-- Revisa la consola del navegador para ver errores
-
-### La semana muestra datos incorrectos
-
-- Verifica que la fecha/hora de tu dispositivo esté correcta
-- La app usa timezone Argentina (America/Argentina/Buenos_Aires)
+- Verifica que el schema SQL se haya ejecutado correctamente
+- Verifica que las variables de entorno estén configuradas
 
 ---
 
-Desarrollado con ❤️ para conductores Uber - Datos desde Git, control total
+Desarrollado con ❤️ para conductores Uber - Backend mínimo con Supabase

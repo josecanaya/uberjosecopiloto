@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { setManualAdjustment, removeManualAdjustment, type ManualAdjustment } from "@/lib/data";
+import { setManualAdjustment, removeManualAdjustment } from "@/lib/apiAdapter";
+import type { ManualAdjustment } from "@/lib/storage";
 import { formatCurrency } from "@/lib/utils";
 
 interface ManualAdjustmentFormProps {

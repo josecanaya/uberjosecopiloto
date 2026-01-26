@@ -18,7 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { addEvent, updateEvent, getState, type Event } from "@/lib/data";
+import { addEvent, updateEventById, getState } from "@/lib/apiAdapter";
+import type { Event } from "@/lib/storage";
 
 interface PauseFormProps {
   open: boolean;
@@ -40,7 +41,7 @@ export function PauseForm({
     setLoading(true);
     try {
       // Verificar que no haya pausa activa
-      const state = getState();
+      const state = await getState();
       const hasActive = state.events.some(
         (e: Event) => e.type === "PAUSE" && e.pauseStartAt && !e.pauseEndAt
       );
@@ -73,7 +74,7 @@ export function PauseForm({
 
     setLoading(true);
     try {
-      await updateEvent(activePause.id, {
+      await updateEventById(activePause.id, {
         pauseEndAt: new Date().toISOString(),
       });
 

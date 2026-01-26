@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Calendar, BarChart3 } from "lucide-react";
 import { formatCurrency, startOfWeek, getArgentinaDate, formatDate, getDayOfWeek } from "@/lib/utils";
-import { getState, updateWeeklyGoal, defaultState } from "@/lib/data";
+import { getState, updateWeeklyGoal, defaultState } from "@/lib/apiAdapter";
 import { calculateWeekStats } from "@/lib/calculations";
 import { Target, TrendingUp, TrendingDown } from "lucide-react";
 
@@ -21,15 +21,13 @@ export default function SemanaPage() {
   useEffect(() => {
     const loadData = async () => {
       if (typeof window !== "undefined") {
-        const { reloadData } = await import("@/lib/data");
-        await reloadData();
-      }
-      const currentState = getState();
-      setState(currentState);
-      setWeeklyGoalValue((currentState.settings.weeklyGoal || 400000).toString());
-      // Inicializar weekStart solo en el cliente
-      if (weekStart === null) {
-        setWeekStart(startOfWeek(getArgentinaDate()));
+        const currentState = await getState();
+        setState(currentState);
+        setWeeklyGoalValue((currentState.settings.weeklyGoal || 400000).toString());
+        // Inicializar weekStart solo en el cliente
+        if (weekStart === null) {
+          setWeekStart(startOfWeek(getArgentinaDate()));
+        }
       }
     };
     loadData();
@@ -85,11 +83,9 @@ export default function SemanaPage() {
   const handleWeeklyGoalSave = async () => {
     try {
       await updateWeeklyGoal(parseFloat(weeklyGoalValue));
-      const { reloadData } = await import("@/lib/data");
-      await reloadData();
-      setState(getState());
+      const currentState = await getState();
+      setState(currentState);
       setEditingWeeklyGoal(false);
-      alert("Objetivo semanal actualizado. Los cambios se guardarán en Git.");
     } catch (error) {
       console.error(error);
       alert("Error al actualizar objetivo. Verifica la consola.");
