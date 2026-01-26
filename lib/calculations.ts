@@ -119,11 +119,16 @@ export function calculateWeekStats(
   manualAdjustments?: Record<string, ManualAdjustment>
 ): Array<{ dayOfWeek: number; dayName: string; date: Date; goal: number; stats: DayStats }> {
   const weekStats = [];
+  // Orden: Lunes (1), Martes (2), Miércoles (3), Jueves (4), Viernes (5), Sábado (6), Domingo (0)
   const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
+  // weekStart debe ser Lunes (día 1)
+  // Iterar de 0 a 6 para obtener Lunes a Domingo
   for (let i = 0; i < 7; i++) {
     const date = new Date(weekStart);
     date.setDate(weekStart.getDate() + i);
+    
+    // Obtener día de la semana en timezone Argentina
     const dayOfWeek = getDayOfWeek(date);
     const goal = goalsByDow[dayOfWeek] || 0;
     const blocks = planBlocksByDow[dayOfWeek] || [];

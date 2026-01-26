@@ -18,6 +18,7 @@ export default function SemanaPage() {
   const [editingWeeklyGoal, setEditingWeeklyGoal] = useState(false);
   const [weeklyGoalValue, setWeeklyGoalValue] = useState("");
 
+  // Cargar datos iniciales
   useEffect(() => {
     const loadData = async () => {
       if (typeof window !== "undefined") {
@@ -33,6 +34,52 @@ export default function SemanaPage() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Recargar datos cuando cambia la semana
+  useEffect(() => {
+    const reloadWeekData = async () => {
+      if (typeof window !== "undefined" && weekStart) {
+        try {
+          // Calcular rango de la semana (Lunes a Domingo)
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekStart.getDate() + 6);
+          weekEnd.setHours(23, 59, 59, 999);
+          
+          // Convertir a ISO para la API
+          const fromISO = weekStart.toISOString();
+          const toISO = weekEnd.toISOString();
+          
+          // Cargar eventos de la semana específica
+          const { getEvents } = await import("@/lib/api");
+          const weekEvents = await getEvents(fromISO, toISO);
+          
+          // Cargar settings
+          const { getSettings } = await import("@/lib/api");
+          const settings = await getSettings();
+          
+          // Convertir al formato esperado
+          const { convertEventToOld, convertSettingsToOld } = await import("@/lib/apiAdapter");
+          const updatedState = {
+            version: 1,
+            settings: convertSettingsToOld(settings),
+            events: weekEvents.map(convertEventToOld),
+            manualAdjustments: {},
+          };
+          
+          setState(updatedState);
+        } catch (error) {
+          console.error("Error al recargar datos de la semana:", error);
+          // Fallback: recargar todos los datos
+          const currentState = await getState();
+          setState(currentState);
+        }
+      }
+    };
+    
+    if (weekStart) {
+      reloadWeekData();
+    }
+  }, [weekStart]);
 
   // Solo calcular si weekStart está inicializado
   const weekStats = weekStart
